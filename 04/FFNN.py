@@ -44,28 +44,28 @@ class FFNN():
         self.x_train = self.x_train.astype(np.float32)
         self.y_train = self.y_train.astype(np.float32)
 
-        print("Initial data size: ", len(self.y_data))
-        yield_mask = np.abs(self.y_data)<15.0
-        self.x_data = self.x_data[yield_mask]
-        self.y_data = self.y_data[yield_mask]
-        print("Final training size after eliminating overlaps: ", len(self.y_data))
+        print("Initial data size: ", len(self.y_train))
+        yield_mask = np.abs(self.y_train)<15.0
+        self.x_train = self.x_train[yield_mask]
+        self.y_train = self.y_train[yield_mask]
+        print("Final training size after eliminating overlaps: ", len(self.y_train))
 
-        self.y_data = torch.from_numpy(self.y_data)
-        self.x_data = torch.from_numpy(self.x_data)
+        self.y_train = torch.from_numpy(self.y_train)
+        self.x_train = torch.from_numpy(self.x_train)
 
-        shape = self.x_data.size()
+        shape = self.x_train.size()
         self.n_samples = shape[0]
-        self.y_data = torch.reshape(self.y_data,(self.n_samples,1))
+        self.y_train = torch.reshape(self.y_train,(self.n_samples,1))
         self.input_size = shape[1]
 
-        self.y_data[self.y_data>self.en_max] = self.en_max
-        self.y_data = (self.y_data - self.en_min) / (self.en_max - self.en_min)
+        self.y_train[self.y_train>self.en_max] = self.en_max
+        self.y_train = (self.y_train - self.en_min) / (self.en_max - self.en_min)
 
-        self.y_data[self.y_data>1.0] = 1.0
-        self.y_data[self.y_data<0.0] = 0.0
+        self.y_train[self.y_train>1.0] = 1.0
+        self.y_train[self.y_train<0.0] = 0.0
 
-        self.x_data = self.x_data.to(self.device)
-        self.y_data = self.y_data.to(self.device)
+        self.x_train = self.x_train.to(self.device)
+        self.y_train = self.y_train.to(self.device)
 
 
     def process_test_data(self): 
@@ -77,7 +77,9 @@ class FFNN():
         self.y_test = self.y_test[yield_mask]
 
         self.x_test = torch.from_numpy(self.x_test)
-        
+
+
+        self.x_test = self.x_test.to(self.device)
         
     
     def train(self, N_epochs):
@@ -88,18 +90,20 @@ class FFNN():
             self.epoch += 1
             if(epoch%self.validate_per==0):
                 self.validate()
-        return self.results
+
+
+        return self.model, self.results[-1][1]
 
     def train_step(self):
         self.model.train()
-        batch_indexes = torch.split(torch.randperm(self.N_sample).to(self.device), self.batch_size, dim=0)
+        batch_indexes = torch.split(torch.randperm(self.n_samples).to(self.device), self.batch_size, dim=0)
         train_loss = []
         for j in range(len(batch_indexes)):
             b_ind = batch_indexes[j]
             y_hat = self.model.forward(self.x_train[b_ind])
             loss = self.criterion(y_hat,self.y_train[b_ind])
             self.optimizer.zero_grad()
-            self.training_error += loss.cpu().detach().item()
+            train_loss.append(loss.cpu().detach().item())
             loss.backward()
             self.optimizer.step()
         self.training_error = np.mean(np.array(train_loss))

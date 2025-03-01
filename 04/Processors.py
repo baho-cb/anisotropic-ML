@@ -10,6 +10,9 @@ def load_data():
     y_train = np.load('raw_data/y_mergedth4501.npy')
     y_test = np.load('raw_data/y_th_test_sim.npy')
 
+    x_train = x_train[:10000]
+    y_train = y_train[:10000]
+
     return x_train, y_train, x_test, y_test
 
 
@@ -58,6 +61,7 @@ def pts_to_nep(pts_tetra, hypers, nep_cutoff):
     g = nep.get_g_fast()
 
     ng = g.shape[1]
+    lnp = len(pts_tetra)
     g_all = np.zeros((lnp,ng),dtype=np.float32)
     n_loop = int(lnp//Nper) + 3
 
@@ -81,7 +85,7 @@ def pts_to_nep(pts_tetra, hypers, nep_cutoff):
             break
 
     g_all = g_all.astype(np.float32)
-    return g_all    
+    return g_all, nep_cutoff    
 
 
 
