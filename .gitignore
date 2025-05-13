@@ -1,0 +1,11 @@
+# Ignore Python bytecode
+__pycache__/
+*.py[cod]
+
+# Ignore ML experiment artifacts
+**/mlruns/
+**/models/
+**/raw_data/
+*.npy
+*.pth
+*.gsd
