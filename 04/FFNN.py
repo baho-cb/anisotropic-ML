@@ -2,6 +2,9 @@ import numpy as np
 import torch
 import torch.optim as optim
 import torch.nn as nn
+import mlflow
+from mlflow.models import infer_signature
+
 
 
 class FFNN():
@@ -9,7 +12,7 @@ class FFNN():
 
         self.en_min = -6.7
         self.en_max = 15.0
-        self.validate_per = 10 
+        self.validate_per = 3 
 
         self.x_train = x_train
         self.y_train = y_train
@@ -34,7 +37,10 @@ class FFNN():
         if(device>-0.5):
             dev_str = 'cuda:%d' %(device)
             self.device = torch.device(dev_str)
-        
+
+    def set_model_id(self,model_id):
+        self.model_id = model_id
+       
 
     def process_train_data(self):
         """
@@ -107,12 +113,17 @@ class FFNN():
             loss.backward()
             self.optimizer.step()
         self.training_error = np.mean(np.array(train_loss))
-
+        mlflow.log_metric("train_error", self.training_error,self.epoch)
+        
+        
     def validate(self):
         self.model.eval()
         valid_loss = 0
         with torch.no_grad():
             y_pred = self.model(self.x_test)
+            signature = infer_signature(self.x_test.cpu().detach().numpy(), y_pred.cpu().detach().numpy())
+            mlflow.pytorch.log_model(self.model, "model",signature=signature, metadata={"epoch":self.epoch})
+
             y_pred = y_pred*(self.en_max - self.en_min) + self.en_min
             y_pred = y_pred.cpu().detach().numpy()
 
@@ -122,8 +133,12 @@ class FFNN():
             index = np.isnan(aape)
             aape[index] = 0.0
             maape = np.mean(aape)
-
+            mlflow.log_metric("mae_valid", mae,self.epoch)
+            mlflow.log_metric("maape_valid", maape,self.epoch)
+            model_name = './models/model%d_NE%d.pth' %(self.model_id,self.epoch)
+            torch.save(self.model.state_dict(), model_name)
             # print("%.3f %d"%(mae,self.epoch))
+            
             self.results.append([self.epoch,mae,maape,self.training_error])
 
 

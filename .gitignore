@@ -9,3 +9,7 @@ __pycache__/
 *.npy
 *.pth
 *.gsd
+
+nep_simulator/old_scripts/
+nep_simulator/out/
+nep_simulator/deneme/
