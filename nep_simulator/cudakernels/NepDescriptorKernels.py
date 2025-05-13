@@ -7,6 +7,7 @@ void radial_grad(const float* __restrict__ pos,
                        float* __restrict__ r_ij_norm, // (Np,12)
                        float* __restrict__ chebo, // (Np,11,12)
                        float* __restrict__ g_rad, // (Np,11,12)
+                       const float* nep_cutoff,
                const int N_pairs, const int N_chebysev, const int Nd)
 {
     int blx = blockIdx.x;
@@ -17,7 +18,7 @@ void radial_grad(const float* __restrict__ pos,
 
     __shared__ float sums[3];
 
-    if(thx < 12)
+    if(thx < Nd)
     {
 
     if (thx == 0)
@@ -50,7 +51,8 @@ void radial_grad(const float* __restrict__ pos,
 
     float norm = sqrt((x - avgx)*(x - avgx) + (y - avgy)*(y - avgy) + (z - avgz)*(z - avgz));
     r_ij_norm[blx*Nd+thx] = norm;
-    norm = norm/4.5;
+    //norm = norm/4.5;
+    norm = norm/nep_cutoff[0];
     float x_gpu =  2.0*(norm - 1.0)*(norm - 1.0) - 1.0;
     float fc_gpu = 0.5*(1.0 + cosf(3.14159265359*norm));
 
@@ -73,16 +75,16 @@ void radial_grad(const float* __restrict__ pos,
     }
 
 
-    //if(thx < N_chebysev)
-    //    {
-    //    g_rad[blx*N_chebysev + thx] = 0.0;
-        //#pragma unroll
-    //        for (int ii = 0; ii < Nd; ii++)
-    //    {
-    //        g_rad[blx*N_chebysev + thx] += chebo[blx*N_chebysev*Nd + thx*Nd + ii];
-    //    }
+    if(thx < N_chebysev)
+        {
+        g_rad[blx*N_chebysev + thx] = 0.0;
+        #pragma unroll
+            for (int ii = 0; ii < Nd; ii++)
+        {
+            g_rad[blx*N_chebysev + thx] += chebo[blx*N_chebysev*Nd + thx*Nd + ii];
+        }
 
-    //}
+    }
 
 
 
