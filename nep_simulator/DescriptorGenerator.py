@@ -286,16 +286,7 @@ class DescriptorGenerator():
         self.g_all_cupy = cp.hstack((self.g_rad,self.g_ang))
 
 
-
-
-
-
-
-
-
     def pts_to_nep_descriptors(self):
-
-        
 
         if(self.is_sync==1):
                 cp.cuda.Stream.null.synchronize()
@@ -410,6 +401,8 @@ class DescriptorGenerator():
         # g_ang = g_ang.reshape(n_pairs, -1)
         g_ang = g_ang.reshape(self.buffer_size, -1)
 
+
+       
         # plt.figure(1)
         # plt.hist(g_ang.get().flatten(),bins=100)
         # plt.hist(lego_trans.get().flatten(),bins=100)
@@ -430,6 +423,9 @@ class DescriptorGenerator():
 
         # self.g_all_cupy = cp.hstack((g_rad[:n_pairs],g_ang[:n_pairs]))
         self.g_all_cupy = cp.hstack((self.g_rad[:n_pairs],g_ang[:n_pairs]))
+        # print(self.g_all_cupy[0])
+        # exit()
+
 
         if(self.is_sync==1):
                 cp.cuda.Stream.null.synchronize()

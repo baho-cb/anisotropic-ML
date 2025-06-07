@@ -6,8 +6,10 @@ import gsd.hoomd
 
 from ForceEvaluator import ForceEvaluator
 from DescriptorGenerator import DescriptorGenerator
+from DescriptorGeneratorAnalytical import DescriptorGeneratorAnalytical
 from GsdHandler import GsdHandler
 import MathUtils as mu
+import matplotlib.pyplot as plt
 
 class Sim():
     
@@ -63,9 +65,11 @@ class Sim():
         self.evaluator.set_dx_dteta(self.dx,self.dteta)
         self.evaluator.setNparticles(self.Nparticles)
 
+        self.evaluator.read_model_weights()
+
 
     def setNepDescriptors(self,hypers):
-        self.descriptor_generator = DescriptorGenerator()
+        self.descriptor_generator = DescriptorGeneratorAnalytical()
         self.descriptor_generator.setDevice(self.device)
         self.descriptor_generator.setHyperParameters(hypers)    
         self.descriptor_generator.setBoxSize(self.Lx)
@@ -231,34 +235,60 @@ class Sim():
                 self.print_performance_info()
                 self.dumpConfig(self.timestep)
 
-            self.step()
+            # self.step()
+            self.step_analytical()
 
-        print('Timers:')
-        print('t_nlist : %.2f'%(self.t_nlist))
-        print('t_gen : %.2f'%(self.t_gen))
-        print('t_eval : %.2f'%(self.t_eval))
-        print('t_s1 : %.2f'%(self.t_s1))
-        print('t_s2 : %.2f'%(self.t_s2))    
+        # print('Timers:')
+        # print('t_nlist : %.2f'%(self.t_nlist))
+        # print('t_gen : %.2f'%(self.t_gen))
+        # print('t_eval : %.2f'%(self.t_eval))
+        # print('t_s1 : %.2f'%(self.t_s1))
+        # print('t_s2 : %.2f'%(self.t_s2))    
 
-        print('Descriptor Generator Timers:')
-        print('t_pos_to_pts : %.2f'%(self.descriptor_generator.t_pos_to_pts))
-        print('t_apply_dx_dteta : %.2f'%(self.descriptor_generator.t_dx))
-        print('t_pts_to_nep : %.2f'%(self.descriptor_generator.t_pts_to_nep))
+        # print('Descriptor Generator Timers:')
+        # print('t_pos_to_pts : %.2f'%(self.descriptor_generator.t_pos_to_pts))
+        # print('t_apply_dx_dteta : %.2f'%(self.descriptor_generator.t_dx))
+        # print('t_pts_to_nep : %.2f'%(self.descriptor_generator.t_pts_to_nep))
 
-        print('NEP timers')
-        print('t_nep1 : %.2f'%(self.descriptor_generator.t_nep1))
-        print('t_nep2 : %.2f'%(self.descriptor_generator.t_nep2))
-        print('t_nep3 : %.2f'%(self.descriptor_generator.t_nep3))
-        print('t_nep4 : %.2f'%(self.descriptor_generator.t_nep4))
-        print('t_nep5 : %.2f'%(self.descriptor_generator.t_nep5))
+        # print('NEP timers')
+        # print('t_nep1 : %.2f'%(self.descriptor_generator.t_nep1))
+        # print('t_nep2 : %.2f'%(self.descriptor_generator.t_nep2))
+        # print('t_nep3 : %.2f'%(self.descriptor_generator.t_nep3))
+        # print('t_nep4 : %.2f'%(self.descriptor_generator.t_nep4))
+        # print('t_nep5 : %.2f'%(self.descriptor_generator.t_nep5))
 
         print('Done')        
 
+    def step_analytical(self):
+        g_nep, pp, Npair = self.descriptor_generator.generate_nep_descriptors(self.central_pos,self.orientations,self.Nlist)
+        self.forces, self.torks = self.evaluator.evaluate_interactions(g_nep,pp,Npair)  
+        
+        g_nep0 = g_nep[:Npair]
+        dgdtetax, pp, Npair = self.descriptor_generator.generate_nep_descriptors_derivatives(self.central_pos,self.orientations,self.Nlist)
+
+        t_anal = self.evaluator.evaluate_interactions_analytical(g_nep0,dgdtetax,pp,Npair)
+   
+        plt.figure(1)
+        xx = np.linspace(-1,1,1000)
+        plt.plot(xx,xx,'k--')
+        plt.scatter(cp.asnumpy(t_anal), cp.asnumpy(self.torks[:,0]), s=1)
+        plt.xlabel('Analytical Torque')
+        plt.ylabel('Numerical Torque')
+        plt.show()
+        exit()
+
+
+        self.integrate_step_two()        
+        self.integrate_step_one()
+        
+        
     def step(self):
         if(self.is_sync==1):
                 cp.cuda.Stream.null.synchronize()
         t0 = time.time()        
         g_nep, pp, Npair = self.descriptor_generator.generate_nep_descriptors(self.central_pos,self.orientations,self.Nlist)
+        g_nep0 = g_nep[:Npair]
+        dgdtetax, pp, Npair = self.descriptor_generator.generate_nep_descriptors_derivatives(self.central_pos,self.orientations,self.Nlist)
 
         if(self.is_sync==1):
                 cp.cuda.Stream.null.synchronize()
