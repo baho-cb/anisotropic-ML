@@ -19,6 +19,8 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
         self.calculate_dpts_dtetax(central_pos,orientations,Nlist)
         self.calculate_derivatives()
 
+        self.calculate_dx_derivatives()
+
         return self.dqdtetax, self.pp, self.N_pair
 
     def calculate_pts(self,central_pos,orientations,Nlist):
@@ -39,21 +41,7 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
         self.N_pair = N_pair
 
         QUAT1 = orientations[pair0]
-        
         QUAT2 = orientations[pair1]
-
-        # debug_raw = cp.zeros((N_pair,14),dtype=cp.float32)
-        # debug_raw[:,3:7] = QUAT1
-        # debug_raw[:,7:10] = translate
-        # debug_raw[:,10:14] = QUAT2
-        # ddd = np.load('debug_raw.npy')
-        # diff = np.abs(ddd - cp.asnumpy(debug_raw))
-        # print('max diff in debug_raw:',np.max(diff))
-        # exit(   )
-
-        # debug_raw = cp.asnumpy(debug_raw)
-        # np.save('debug_raw.npy',debug_raw)
-        # exit()
 
         self.pts_pair = cp.empty((self.N_pair,self.Nd,3),dtype=cp.float32)
         blocks = (self.N_pair,)
@@ -239,7 +227,7 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
 
         inner_x = cp.sum(self.drdp * self.dpts_rep_dtetax_double, axis=2)  # (100, 6)
 
-
+        self.dgdr_fordx = cp.copy(self.dgdr)
         self.dgdr[:,:,6:] = 0.0
         
         self.dgraddtetax = self.dgdr * inner_x[cp.newaxis, :, :]  # → (3, 100)
@@ -247,11 +235,6 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
         self.dqraddtetax = cp.sum(self.dgdr * inner_x[cp.newaxis, :, :], axis=2)  # → (3, 100)
 
     def calculate_dqang_dteta(self):
-        # dgdtetax = cp.zeros((self.dgraddtetax.shape[0],self.dgraddtetax.shape[1],self.dgraddtetax.shape[2]*2))
-
-        # print(self.dgraddtetax.shape)
-        # print(self.dgraddtetax[0,19])
-        # exit()
 
         dgdtetax = cp.zeros((self.dgraddtetax.shape[0],self.dgraddtetax.shape[1],self.dgraddtetax.shape[2]))
         dgdtetax[:, :, :self.dgraddtetax.shape[2]] = self.dgraddtetax
@@ -271,14 +254,34 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
                 term1 = dgdtetaxij[n]*gik[n]*self.dpl[l]
                 term2 = dgdtetaxik[n]*gij[n]*self.dpl[l]
                 term3 = gij[n]*gik[n]*self.dpl_dtetax[l]
-                # g_ang[n*3 + l] = gij[n]*gik[n]*self.dpl[l]
                 dg_ang_dtetax[n*self.lmax + l] = term1 + term2 + term3
-
-        # cp.save('g_ang.npy',g_ang)
-        # exit()
         
         
         self.dqangdtetax = cp.sum(dg_ang_dtetax, axis=-1) 
+
+
+################ FOR FORCE ################# 
+
+    def calculate_dx_derivatives(self):
+        self.calculate_drdx()
+
+
+    def calculate_drdx(self):
+
+        self.drdx = (self.P[:,:,0]/ self.r)*(+0.5)
+        self.drdx[:,6:] *= -1.0
+        self.dgdx = self.dgdr_fordx* self.drdx[np.newaxis, :, :]  # shape (3, N_pair, 3)
+        self.dqdx = cp.sum(self.dgdx, axis=2)
+        self.dqdx = self.dqdx.T
+        # print(self.drdx.shape)
+        # print(self.dgdr.shape)
+        # print(self.dgdx.shape)
+        # exit()
+
+
+
+
+
 
 
     def dummy(self):

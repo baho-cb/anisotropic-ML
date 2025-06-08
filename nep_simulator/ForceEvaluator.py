@@ -157,10 +157,28 @@ class ForceEvaluator():
 
     ######## FUNCTIONS NEEDED FOR ANALYTICAL DERICATIVE ######## 
 
-    def evaluate_interactions_analytical(self,g_all_cupy,dqdtetax,pp,N_pair):
+    def evaluate_interactions_analytical(self,g_all_cupy,dqdtetax,pp,N_pair,dqdx):
         self.evaluate_gradients_analytical(g_all_cupy)
-        # dqdtetax_true = np.load('dqdt.npy'))
+        g_rad = g_all_cupy[:420,:11]
+        g_raddx = g_all_cupy[420:,:11]
+        dqdx_true = (g_raddx - g_rad) / self.dx
 
+        print(dqdx_true.shape)
+        print(dqdx.shape)
+
+        print(dqdx_true[0])
+        print(dqdx[0])
+
+        plt.figure(1)
+        xx = np.linspace(cp.min(dqdx_true).get(),cp.max(dqdx_true).get(),100)
+        plt.plot(xx,xx,'k--')
+        plt.scatter(cp.asnumpy(dqdx),cp.asnumpy(dqdx_true))
+        plt.show()
+
+        exit()
+        diff = cp.abs(dqdx_true - dqdx)
+        print(cp.max(diff))
+        exit()
 
         self.tork_x_analytical = cp.sum(self.dudq * dqdtetax, axis=1)
         self.net_interactions(pp)
