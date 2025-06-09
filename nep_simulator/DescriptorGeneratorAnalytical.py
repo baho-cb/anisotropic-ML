@@ -134,10 +134,15 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
         self.dpts_rep_dtetax_double = dpts_rep_dtetax_double
         self.drdtetax = cp.sum(self.P * dpts_rep_dtetax_double, axis=2)/self.r
 
+        
         P_i  = self.P[:, :, None, :]    # shape → (100, 12, 1, 3)
         P_j  = self.P[:, None, :, :]    # shape → (100, 1, 12, 3)
         dP_i = dpts_rep_dtetax_double[:, :, None, :]     # shape → (100, 12, 1, 3)
         dP_j = dpts_rep_dtetax_double[:, None, :, :]     # shape → (100, 1, 12, 3)
+
+        # print(dpts_rep_dtetax_double.shape)
+        # print(dpts_rep_dtetax_double[0])
+        # exit()
 
         R_i  = self.r[:, :, None]       # shape → (100, 12, 1)
         R_j  = self.r[:, None, :]       # shape → (100, 1, 12)
@@ -154,6 +159,7 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
         num2 = dot_p * (dR_i * R_j + R_i * dR_j)  # shape → (100, 12, 12)
 
         self.dcosine_dtetax = (num1 * den - num2) / den2       # shape → (100, 12, 12)
+
         self.dcosine_dtetax = self.dcosine_dtetax.reshape(self.N_pair,-1)
 
         self.dpl_dtetax = self.dpldcosine * self.dcosine_dtetax[cp.newaxis, :, :]
@@ -264,22 +270,81 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
 
     def calculate_dx_derivatives(self):
         self.calculate_drdx()
+        self.calculate_dcosine_dx()
+        self.calculate_dqang_dx()
 
 
     def calculate_drdx(self):
 
+        # dpxdx = +-1/2, dpydy = +- 1/2     
         self.drdx = (self.P[:,:,0]/ self.r)*(+0.5)
         self.drdx[:,6:] *= -1.0
         self.dgdx = self.dgdr_fordx* self.drdx[np.newaxis, :, :]  # shape (3, N_pair, 3)
         self.dqdx = cp.sum(self.dgdx, axis=2)
         self.dqdx = self.dqdx.T
-        # print(self.drdx.shape)
-        # print(self.dgdr.shape)
-        # print(self.dgdx.shape)
+        self.dpdx = cp.zeros((self.N_pair, 6*2, 3), dtype=cp.float32)
+        self.dpdx[:, :6, 0] = +0.5
+        self.dpdx[:, 6:, 0] = -0.5
+
+    def calculate_dcosine_dx(self):
+        P_i  = self.P[:, :, None, :]    # shape → (100, 12, 1, 3)
+        P_j  = self.P[:, None, :, :]    # shape → (100, 1, 12, 3)
+        dP_i = self.dpdx[:, :, None, :]     # shape → (100, 12, 1, 3)
+        dP_j = self.dpdx[:, None, :, :]     # shape → (100, 1, 12, 3)
+
+        R_i  = self.r[:, :, None]       # shape → (100, 12, 1)
+        R_j  = self.r[:, None, :]       # shape → (100, 1, 12)
+        dR_i = self.drdx[:, :, None]        # shape → (100, 12, 1)
+        dR_j = self.drdx[:, None, :]        # shape → (100, 1, 12)
+
+        dot_p = cp.sum(P_i * P_j, axis=-1)      # shape → (100, 12, 12)
+        dot_dp_p = cp.sum(dP_i * P_j, axis=-1)   # shape → (100, 12, 12)
+        dot_p_dp = cp.sum(P_i * dP_j, axis=-1)   # shape → (100, 12, 12)
+        num1 = dot_dp_p + dot_p_dp              # shape → (100, 12, 12)
+
+        den = R_i * R_j                         # r_i * r_j, shape → (100, 12, 12)
+        den2 = den * den                        # (r_i * r_j)^2, shape → (100, 12, 12)
+        num2 = dot_p * (dR_i * R_j + R_i * dR_j)  # shape → (100, 12, 12)
+
+        self.dcosine_dx = (num1 * den - num2) / den2       # shape → (100, 12, 12)
+        # self.dcosine_dx[:, np.arange(12), np.arange(12)] = 0
+        # print(self.dcosine_dx[0])
         # exit()
+        self.dcosine_dx = self.dcosine_dx.reshape(self.N_pair,-1)
+        
+ 
 
+        self.dpl_dx = self.dpldcosine * self.dcosine_dx[cp.newaxis, :, :]
+       
+    def calculate_dqang_dx(self):
 
+        # dgdx = cp.zeros((self.dgdx.shape[0],self.dgdx.shape[1],self.dgdx.shape[2]))
+        # dgdx[:, :, :self.dgdx.shape[2]] = self.dgdx
+        dgdx = self.dgdx    
+        # print(dgdx)
+        # exit()
+        
+        gij = cp.tile(self.g_rad,(1,1,12))
+        gik = cp.repeat(self.g_rad,12,axis=-1)
 
+        dgdxij = cp.tile(dgdx,(1,1,12))
+        dgdxik = cp.repeat(dgdx,12,axis=-1)
+
+        n_desc_ang = (self.nang+1) * self.lmax
+
+        dg_ang_dx = cp.zeros((n_desc_ang,self.N_pair,144), dtype=cp.float32)
+        g_ang = cp.zeros((n_desc_ang,self.N_pair,144), dtype=cp.float32)
+        for n in range(self.nang+1):
+            for l in range(self.lmax):
+                term1 = dgdxij[n]*gik[n]*self.dpl[l]
+                term2 = dgdxik[n]*gij[n]*self.dpl[l]
+                term3 = gij[n]*gik[n]*self.dpl_dx[l]
+                dg_ang_dx[n*self.lmax + l] = term1 + term2 + term3
+        
+        
+        self.dqangdx = cp.sum(dg_ang_dx, axis=-1) 
+        self.dqangdx = self.dqangdx.T
+        self.dqdx = cp.concatenate((self.dqdx,self.dqangdx),axis=1)
 
 
 

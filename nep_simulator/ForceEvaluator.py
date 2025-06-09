@@ -139,6 +139,7 @@ class ForceEvaluator():
         torks_inter2[torks_inter2<-100.0] = -100.0
 
         self.t_true = cp.from_dlpack(torks_inter1[:,0]) 
+        self.f_true = cp.from_dlpack(forces_inter[:,0]) 
 
 
         forces_net = torch.zeros((self.Nparticles,3),device=self.torch_device)
@@ -159,28 +160,14 @@ class ForceEvaluator():
 
     def evaluate_interactions_analytical(self,g_all_cupy,dqdtetax,pp,N_pair,dqdx):
         self.evaluate_gradients_analytical(g_all_cupy)
-        g_rad = g_all_cupy[:420,:11]
-        g_raddx = g_all_cupy[420:,:11]
-        dqdx_true = (g_raddx - g_rad) / self.dx
 
-        print(dqdx_true.shape)
-        print(dqdx.shape)
-
-        print(dqdx_true[0])
-        print(dqdx[0])
-
-        plt.figure(1)
-        xx = np.linspace(cp.min(dqdx_true).get(),cp.max(dqdx_true).get(),100)
-        plt.plot(xx,xx,'k--')
-        plt.scatter(cp.asnumpy(dqdx),cp.asnumpy(dqdx_true))
-        plt.show()
-
-        exit()
-        diff = cp.abs(dqdx_true - dqdx)
-        print(cp.max(diff))
-        exit()
+        # print(self.dudq.shape)
+        # print(dqdtetax.shape)
+        # print(dqdx.shape)
+        # exit()
 
         self.tork_x_analytical = cp.sum(self.dudq * dqdtetax, axis=1)
+        self.force_x_analytical = cp.sum(self.dudq * dqdx, axis=1)
         self.net_interactions(pp)
         return  self.torks_analytical 
 
@@ -190,12 +177,17 @@ class ForceEvaluator():
         en_range = self.en_max - self.en_min
 
         self.tork_x_analytical = self.tork_x_analytical * -en_range
+        self.force_x_analytical = self.force_x_analytical * -en_range
         diff = cp.abs(self.tork_x_analytical - self.t_true)
+        diff2 = cp.abs(self.force_x_analytical - self.f_true)
+
         xx = np.linspace(cp.min(self.t_true).get(),cp.max(self.t_true).get(),100)
         print(cp.max(diff))
+        print(cp.max(diff2))
         plt.figure(1)
         plt.plot(xx,xx,'k--')
         plt.scatter(cp.asnumpy(self.tork_x_analytical),cp.asnumpy(self.t_true))
+        plt.scatter(cp.asnumpy(self.force_x_analytical),cp.asnumpy(self.f_true))
         plt.show()
         exit()
 

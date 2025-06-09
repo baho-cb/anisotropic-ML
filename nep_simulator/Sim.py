@@ -49,6 +49,7 @@ class Sim():
         self.moi_to_dump = gsd_handler.getMoi()
 
         self.dx = 0.00001 # 0.001 gives best match with analytical 
+        # self.dx = 0.001 # 0.001 gives best match with analytical 
         self.dteta = 0.00001
 
         
@@ -263,9 +264,10 @@ class Sim():
         g_nep, pp, Npair = self.descriptor_generator.generate_nep_descriptors(self.central_pos,self.orientations,self.Nlist)
         self.forces, self.torks = self.evaluator.evaluate_interactions(g_nep,pp,Npair)  
         
-        g_nep0 = g_nep[:Npair*2]
+        g_nep0 = g_nep[:Npair]
         dgdtetax, pp, Npair = self.descriptor_generator.generate_nep_descriptors_derivatives(self.central_pos,self.orientations,self.Nlist)
         dqdx = self.descriptor_generator.dqdx
+        
 
         t_anal = self.evaluator.evaluate_interactions_analytical(g_nep0,dgdtetax,pp,Npair,dqdx)
    
