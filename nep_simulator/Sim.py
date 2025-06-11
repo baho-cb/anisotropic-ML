@@ -265,11 +265,11 @@ class Sim():
         self.forces, self.torks = self.evaluator.evaluate_interactions(g_nep,pp,Npair)  
         
         g_nep0 = g_nep[:Npair]
-        dgdtetax, pp, Npair = self.descriptor_generator.generate_nep_descriptors_derivatives(self.central_pos,self.orientations,self.Nlist)
-        dqdx = self.descriptor_generator.dqdx
+        dqalldteta_list, pp, Npair = self.descriptor_generator.generate_nep_descriptors_derivatives(self.central_pos,self.orientations,self.Nlist)
+        # dqdx = self.descriptor_generator.dqdx
         
 
-        t_anal = self.evaluator.evaluate_interactions_analytical(g_nep0,dgdtetax,pp,Npair,dqdx)
+        t_anal = self.evaluator.evaluate_interactions_analytical(g_nep0,pp,Npair,dqalldteta_list,0)
    
         plt.figure(1)
         xx = np.linspace(-1,1,1000)

@@ -138,7 +138,8 @@ class ForceEvaluator():
         torks_inter1[torks_inter1<-100.0] = -100.0
         torks_inter2[torks_inter2<-100.0] = -100.0
 
-        self.t_true = cp.from_dlpack(torks_inter1[:,0]) 
+        self.t_true1 = cp.from_dlpack(torks_inter1) 
+        self.t_true2 = cp.from_dlpack(torks_inter2) 
         self.f_true = cp.from_dlpack(forces_inter[:,0]) 
 
 
@@ -158,37 +159,44 @@ class ForceEvaluator():
 
     ######## FUNCTIONS NEEDED FOR ANALYTICAL DERICATIVE ######## 
 
-    def evaluate_interactions_analytical(self,g_all_cupy,dqdtetax,pp,N_pair,dqdx):
+    def evaluate_interactions_analytical(self,g_all_cupy,pp,N_pair,dqall_dtetalist, dqdx):
         self.evaluate_gradients_analytical(g_all_cupy)
 
-        # print(self.dudq.shape)
-        # print(dqdtetax.shape)
-        # print(dqdx.shape)
-        # exit()
+        self.tork1_analytical = cp.zeros((N_pair,3),dtype=cp.float32)
+        self.tork2_analytical = cp.zeros((N_pair,3),dtype=cp.float32)
+        en_range = self.en_max - self.en_min
 
-        self.tork_x_analytical = cp.sum(self.dudq * dqdtetax, axis=1)
-        self.force_x_analytical = cp.sum(self.dudq * dqdx, axis=1)
+        for i in range(3):
+            self.tork1_analytical[:,i] = cp.sum(self.dudq * dqall_dtetalist[i][:,:], axis=1) * (-en_range)
+        for i in range(3):
+            self.tork2_analytical[:,i] = cp.sum(self.dudq * dqall_dtetalist[i+3][:,:], axis=1) * (-en_range)
+
         self.net_interactions(pp)
         return  self.torks_analytical 
 
     def net_interactions(self,pp):
 
-        print(self.t_true.shape)
-        en_range = self.en_max - self.en_min
 
-        self.tork_x_analytical = self.tork_x_analytical * -en_range
-        self.force_x_analytical = self.force_x_analytical * -en_range
-        diff = cp.abs(self.tork_x_analytical - self.t_true)
-        diff2 = cp.abs(self.force_x_analytical - self.f_true)
+        diff1 = cp.abs(self.tork1_analytical - self.t_true1)
+        diff2 = cp.abs(self.tork2_analytical - self.t_true2)
 
-        xx = np.linspace(cp.min(self.t_true).get(),cp.max(self.t_true).get(),100)
-        print(cp.max(diff))
+
+        print(cp.max(diff1))
         print(cp.max(diff2))
+        # exit()
+        xx = np.linspace(cp.min(self.t_true1).get(),cp.max(self.t_true1).get(),100)
         plt.figure(1)
         plt.plot(xx,xx,'k--')
-        plt.scatter(cp.asnumpy(self.tork_x_analytical),cp.asnumpy(self.t_true))
-        plt.scatter(cp.asnumpy(self.force_x_analytical),cp.asnumpy(self.f_true))
+        # plt.scatter(cp.asnumpy(self.tork1_analytical[:,0]),cp.asnumpy(self.t_true1[:,0]))
+        # plt.scatter(cp.asnumpy(self.tork1_analytical[:,1]),cp.asnumpy(self.t_true1[:,1]))
+        # plt.scatter(cp.asnumpy(self.tork1_analytical[:,2]),cp.asnumpy(self.t_true1[:,2]))
+        plt.scatter(cp.asnumpy(self.tork2_analytical[:,0]),cp.asnumpy(self.t_true2[:,0]),label='x')
+        plt.scatter(cp.asnumpy(self.tork2_analytical[:,1]),cp.asnumpy(self.t_true2[:,1]),label='y')
+        plt.scatter(cp.asnumpy(self.tork2_analytical[:,2]),cp.asnumpy(self.t_true2[:,2]),label='z')
+        # plt.scatter(cp.asnumpy(self.force_x_analytical),cp.asnumpy(self.f_true))
+        plt.legend()
         plt.show()
+
         exit()
 
 
