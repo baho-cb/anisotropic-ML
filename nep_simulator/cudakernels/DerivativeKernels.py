@@ -13,6 +13,7 @@ void calculate_dpdteta(    const float* __restrict__ quat1,
                        float* __restrict__ dp2dx, // [Np, Nd/2, 3]   
                        float* __restrict__ dp2dy, // [Np, Nd/2, 3]   
                        float* __restrict__ dp2dz, // [Np, Nd/2, 3]   
+                       float* __restrict__ dp1dteta, // [Np, Nd/2, 3]   
                        const int Np,
                        const int Nd // 12 for cube, 8 for tetrahedron
                        )
@@ -66,7 +67,7 @@ void calculate_dpdteta(    const float* __restrict__ quat1,
     size_t base1 = ((size_t)bidx * Nd + tidx) * 3;
     pts12[base1 + 0] = a1*px + 2.f*(qw1*cross_yz1 + d1*qx1) - tx*0.5f;
     pts12[base1 + 1] = a1*py + 2.f*(qw1*cross_xz1 + d1*qy1) - ty*0.5f;
-    pts12[base1 + 2] = a1*pz + 2.0f*(qw1*cross_xy1 + d1*qz1) - tz*0.5f;
+    pts12[base1 + 2] = a1*pz + 2.f*(qw1*cross_xy1 + d1*qz1) - tz*0.5f;
             
     size_t base2 = base1 + ndh * 3;
     pts12[base2 + 0] = a2*px + 2.f*(qw2*cross_yz2 + d2*qx2) + tx*0.5f;
@@ -75,13 +76,17 @@ void calculate_dpdteta(    const float* __restrict__ quat1,
 
     size_t base_d = ((size_t)bidx * ndh + tidx) * 3;
 
+    dp1dteta[base_d + 0] = a1*px + 2.f*(qw1*cross_yz1 + d1*qx1);                        
+    dp1dteta[base_d + 1] = a1*py + 2.f*(qw1*cross_xz1 + d1*qy1);                        
+    dp1dteta[base_d + 2] = a1*pz + 2.f*(qw1*cross_xy1 + d1*qz1);                        
+
     dp1dx[base_d + 0] = 0.f;
     dp1dx[base_d + 1] = -pz*a1 - 2.f*qw1*cross_xy1 - 2.f*qz1*d1;
     dp1dx[base_d + 2] = +py*a1 + 2.f*qw1*cross_xz1 + 2.f*qy1*d1;
 
     dp1dy[base_d + 0] = +pz*a1 + 2.f*qw1*cross_xy1 + 2.f*qz1*d1;
     dp1dy[base_d + 1] = 0.f;
-    dp1dy[base_d + 2] = -px*a1 - 2.f*qw1*cross_yz1 - 2.f*qz1*d1;
+    dp1dy[base_d + 2] = -px*a1 - 2.f*qw1*cross_yz1 - 2.f*qx1*d1;
 
     dp1dz[base_d + 0] = -py*a1 - 2.f*qw1*cross_xz1 - 2.f*qy1*d1;
     dp1dz[base_d + 1] = +px*a1 + 2.f*qw1*cross_yz1 + 2.f*qx1*d1;
@@ -94,7 +99,7 @@ void calculate_dpdteta(    const float* __restrict__ quat1,
 
     dp2dy[base_d + 0] = +pz*a2 + 2.f*qw2*cross_xy2 + 2.f*qz2*d2;
     dp2dy[base_d + 1] = 0.f;
-    dp2dy[base_d + 2] = -px*a2 - 2.f*qw2*cross_yz2 - 2.f*qz2*d2;
+    dp2dy[base_d + 2] = -px*a2 - 2.f*qw2*cross_yz2 - 2.f*qx2*d2;
 
     dp2dz[base_d + 0] = -py*a2 - 2.f*qw2*cross_xz2 - 2.f*qy2*d2;
     dp2dz[base_d + 1] = +px*a2 + 2.f*qw2*cross_yz2 + 2.f*qx2*d2;

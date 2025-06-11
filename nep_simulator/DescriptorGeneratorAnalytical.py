@@ -103,41 +103,44 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
         self.quat1 = QUAT1
         self.quat2 = QUAT2
 
-        # blocks = (self.N_pair,)
-        # threads_per_block = (32,)
+        blocks = (self.N_pair,)
+        threads_per_block = (32,)
 
-        # self._P = cp.empty((self.N_pair,self.Nd,3),dtype=cp.float32)
-        # self._p1dtetax = cp.empty((self.N_pair,self.Nd//2,3),dtype=cp.float32) # (N_pair,6,3)
-        # self._p1dtetay = cp.empty((self.N_pair,self.Nd//2,3),dtype=cp.float32) # (N_pair,6,3)
-        # self._p1dtetaz = cp.empty((self.N_pair,self.Nd//2,3),dtype=cp.float32) # (N_pair,6,3)
-        # self._p2dtetax = cp.empty((self.N_pair,self.Nd//2,3),dtype=cp.float32) # (N_pair,6,3)
-        # self._p2dtetay = cp.empty((self.N_pair,self.Nd//2,3),dtype=cp.float32) # (N_pair,6,3)
-        # self._p2dtetaz = cp.empty((self.N_pair,self.Nd//2,3),dtype=cp.float32) # (N_pair,6,3)
+        self._P = cp.empty((self.N_pair,self.Nd,3),dtype=cp.float32)
+        self._p1dtetax = cp.empty((self.N_pair,self.Nd//2,3),dtype=cp.float32) # (N_pair,6,3)
+        self._p1dtetay = cp.empty((self.N_pair,self.Nd//2,3),dtype=cp.float32) # (N_pair,6,3)
+        self._p1dtetaz = cp.empty((self.N_pair,self.Nd//2,3),dtype=cp.float32) # (N_pair,6,3)
+        self._p2dtetax = cp.empty((self.N_pair,self.Nd//2,3),dtype=cp.float32) # (N_pair,6,3)
+        self._p2dtetay = cp.empty((self.N_pair,self.Nd//2,3),dtype=cp.float32) # (N_pair,6,3)
+        self._p2dtetaz = cp.empty((self.N_pair,self.Nd//2,3),dtype=cp.float32) # (N_pair,6,3)
+        self._p1dteta = cp.empty((self.N_pair,self.Nd//2,3),dtype=cp.float32) # (N_pair,6,3)
 
-        # cuda_dk.dpts_kernel(
-        #     blocks,
-        #     threads_per_block,
-        #     (
-        #         QUAT1,
-        #         QUAT2,
-        #         translate,
-        #         self.pts_rep,
-        #         self._P,
-        #         self._p1dtetax,
-        #         self._p1dtetay,
-        #         self._p1dtetaz,
-        #         self._p2dtetax,
-        #         self._p2dtetay,
-        #         self._p2dtetaz,
-        #         cp.int32(self.N_pair),
-        #         cp.int32(self.Nd)
-        #     )
-        # )
+        cuda_dk.dpts_kernel(
+            blocks,
+            threads_per_block,
+            (
+                QUAT1,
+                QUAT2,
+                translate,
+                self.pts_rep,
+                self._P,
+                self._p1dtetax,
+                self._p1dtetay,
+                self._p1dtetaz,
+                self._p2dtetax,
+                self._p2dtetay,
+                self._p2dtetaz,
+                self._p1dteta,
+                cp.int32(self.N_pair),
+                cp.int32(self.Nd)
+            )
+        )
 
-
+        # print(self._p1dteta[0])
         # print(self._p1dtetax[0])
         # print(self._p1dtetay[0])
         # print(self._p1dtetaz[0])
+
         # exit()
 
         self.pts_pair = cp.empty((self.N_pair,self.Nd,3),dtype=cp.float32)
@@ -263,24 +266,15 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
         )  # shape (N_pair,6)  
 
         # print(self.P[0])
-        # print(self.p2dtetax[0])
-        # print(self.p2dtetay[0])
-        # print(self.p2dtetaz[0])
-        # exit()
-
         # print(mu.maxerr(self.P, self._P))
-        # print(mu.maxerr(self.p1dtetax, self._p1dtetax))
-        # print(mu.maxerr(self.p1dtetay, self._p1dtetay))
-        # print(mu.maxerr(self.p1dtetaz, self._p1dtetaz))
-        # # print((self.p2dtetax[0]))
-        # # print((self._p2dtetax[0]))
+        print(mu.maxerr(self.p1dtetax, self._p1dtetax))
+        print(mu.maxerr(self.p1dtetay, self._p1dtetay))
+        print(mu.maxerr(self.p1dtetaz, self._p1dtetaz))
+        print(mu.maxerr(self.p2dtetax, self._p2dtetax))
+        print(mu.maxerr(self.p2dtetay, self._p2dtetay))
+        print(mu.maxerr(self.p2dtetaz, self._p2dtetaz))
 
-
-        # print(mu.maxerr(self.p2dtetax, self._p2dtetax))
-        # print(mu.maxerr(self.p2dtetay, self._p2dtetay))
-        # print(mu.maxerr(self.p2dtetaz, self._p2dtetaz))
-
-        # exit()
+        exit()
 
 
 
