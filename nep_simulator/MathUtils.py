@@ -26,6 +26,8 @@ def quaternion_multiplication(a,b):
 
 def maxerr(arr1,arr2):
     if(arr1.shape != arr2.shape):
+        print("Shape of arr1:", arr1.shape)
+        print("Shape of arr2:", arr2.shape)
         raise ValueError("Arrays must have the same shape for maxerr calculation.")
     
     return cp.max(cp.abs(arr1 - arr2))

@@ -140,7 +140,7 @@ class ForceEvaluator():
 
         self.t_true1 = cp.from_dlpack(torks_inter1) 
         self.t_true2 = cp.from_dlpack(torks_inter2) 
-        self.f_true = cp.from_dlpack(forces_inter[:,0]) 
+        self.f_true = cp.from_dlpack(forces_inter) 
 
 
         forces_net = torch.zeros((self.Nparticles,3),device=self.torch_device)
@@ -159,17 +159,21 @@ class ForceEvaluator():
 
     ######## FUNCTIONS NEEDED FOR ANALYTICAL DERICATIVE ######## 
 
-    def evaluate_interactions_analytical(self,g_all_cupy,pp,N_pair,dqall_dtetalist, dqdx):
+    def evaluate_interactions_analytical(self,g_all_cupy,pp,N_pair,dqall_dtetalist, dqdxyz):
         self.evaluate_gradients_analytical(g_all_cupy)
 
         self.tork1_analytical = cp.zeros((N_pair,3),dtype=cp.float32)
         self.tork2_analytical = cp.zeros((N_pair,3),dtype=cp.float32)
+        self.force_analytical = cp.zeros((N_pair,3),dtype=cp.float32)
         en_range = self.en_max - self.en_min
 
         for i in range(3):
             self.tork1_analytical[:,i] = cp.sum(self.dudq * dqall_dtetalist[i][:,:], axis=1) * (-en_range)
         for i in range(3):
             self.tork2_analytical[:,i] = cp.sum(self.dudq * dqall_dtetalist[i+3][:,:], axis=1) * (-en_range)
+
+        for i in range(3):
+            self.force_analytical[:,i] = cp.sum(self.dudq * dqdxyz[i][:,:], axis=1) * (-en_range)
 
         self.net_interactions(pp)
         return  self.torks_analytical 
@@ -179,10 +183,12 @@ class ForceEvaluator():
 
         diff1 = cp.abs(self.tork1_analytical - self.t_true1)
         diff2 = cp.abs(self.tork2_analytical - self.t_true2)
+        diff3 = cp.abs(self.force_analytical - self.f_true)
 
 
         print(cp.max(diff1))
         print(cp.max(diff2))
+        print(cp.max(diff3))
         # exit()
         xx = np.linspace(cp.min(self.t_true1).get(),cp.max(self.t_true1).get(),100)
         plt.figure(1)
@@ -190,9 +196,12 @@ class ForceEvaluator():
         # plt.scatter(cp.asnumpy(self.tork1_analytical[:,0]),cp.asnumpy(self.t_true1[:,0]))
         # plt.scatter(cp.asnumpy(self.tork1_analytical[:,1]),cp.asnumpy(self.t_true1[:,1]))
         # plt.scatter(cp.asnumpy(self.tork1_analytical[:,2]),cp.asnumpy(self.t_true1[:,2]))
-        plt.scatter(cp.asnumpy(self.tork2_analytical[:,0]),cp.asnumpy(self.t_true2[:,0]),label='x')
-        plt.scatter(cp.asnumpy(self.tork2_analytical[:,1]),cp.asnumpy(self.t_true2[:,1]),label='y')
-        plt.scatter(cp.asnumpy(self.tork2_analytical[:,2]),cp.asnumpy(self.t_true2[:,2]),label='z')
+        # plt.scatter(cp.asnumpy(self.tork2_analytical[:,0]),cp.asnumpy(self.t_true2[:,0]),label='x')
+        # plt.scatter(cp.asnumpy(self.tork2_analytical[:,1]),cp.asnumpy(self.t_true2[:,1]),label='y')
+        # plt.scatter(cp.asnumpy(self.tork2_analytical[:,2]),cp.asnumpy(self.t_true2[:,2]),label='z')
+        plt.scatter(cp.asnumpy(self.force_analytical[:,0]),cp.asnumpy(self.f_true[:,0]),label='fx')
+        plt.scatter(cp.asnumpy(self.force_analytical[:,1]),cp.asnumpy(self.f_true[:,1]),label='fy')
+        plt.scatter(cp.asnumpy(self.force_analytical[:,2]),cp.asnumpy(self.f_true[:,2]),label='fz')
         # plt.scatter(cp.asnumpy(self.force_x_analytical),cp.asnumpy(self.f_true))
         plt.legend()
         plt.show()
