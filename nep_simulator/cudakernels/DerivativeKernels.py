@@ -8,12 +8,6 @@ void calculate_dpdteta(
     const float* __restrict__ trans,
     const float* __restrict__ pts_rep, // 6 by 3
     float* __restrict__ pts12, // [Np, Nd, 3]
-    float* __restrict__ dp1dx, // [Np, Nd/2, 3]   
-    float* __restrict__ dp1dy, // [Np, Nd/2, 3]   
-    float* __restrict__ dp1dz, // [Np, Nd/2, 3]   
-    float* __restrict__ dp2dx, // [Np, Nd/2, 3]   
-    float* __restrict__ dp2dy, // [Np, Nd/2, 3]   
-    float* __restrict__ dp2dz, // [Np, Nd/2, 3]   
     float* __restrict__ dp1dteta, // [Np, Nd/2, 3]   
     float* __restrict__ dp2dteta, // [Np, Nd/2, 3]   
     float* __restrict__ r1, // [Np, Nd/2]   
@@ -118,43 +112,7 @@ void calculate_dpdteta(
     dr2dteta[base_d + 2] = (posx2*-dp2y + posy2*dp2x) / norm2;   
 
 
-                           
-
-
-
-
-
-
-
-
-
-
-
-    dp1dx[base_d + 0] = 0.f;
-    dp1dx[base_d + 1] = -pz*a1 - 2.f*qw1*cross_xy1 - 2.f*qz1*d1;
-    dp1dx[base_d + 2] = +py*a1 + 2.f*qw1*cross_xz1 + 2.f*qy1*d1;
-
-    dp1dy[base_d + 0] = +pz*a1 + 2.f*qw1*cross_xy1 + 2.f*qz1*d1;
-    dp1dy[base_d + 1] = 0.f;
-    dp1dy[base_d + 2] = -px*a1 - 2.f*qw1*cross_yz1 - 2.f*qx1*d1;
-
-    dp1dz[base_d + 0] = -py*a1 - 2.f*qw1*cross_xz1 - 2.f*qy1*d1;
-    dp1dz[base_d + 1] = +px*a1 + 2.f*qw1*cross_yz1 + 2.f*qx1*d1;
-    dp1dz[base_d + 2] = 0.f;                      
-
-
-    dp2dx[base_d + 0] = 0.f;
-    dp2dx[base_d + 1] = -pz*a2 - 2.f*qw2*cross_xy2 - 2.f*qz2*d2;
-    dp2dx[base_d + 2] = +py*a2 + 2.f*qw2*cross_xz2 + 2.f*qy2*d2;
-
-    dp2dy[base_d + 0] = +pz*a2 + 2.f*qw2*cross_xy2 + 2.f*qz2*d2;
-    dp2dy[base_d + 1] = 0.f;
-    dp2dy[base_d + 2] = -px*a2 - 2.f*qw2*cross_yz2 - 2.f*qx2*d2;
-
-    dp2dz[base_d + 0] = -py*a2 - 2.f*qw2*cross_xz2 - 2.f*qy2*d2;
-    dp2dz[base_d + 1] = +px*a2 + 2.f*qw2*cross_yz2 + 2.f*qx2*d2;
-    dp2dz[base_d + 2] = 0.f;
-
+                        
 }                           
 
 ''', 'calculate_dpdteta')
@@ -405,33 +363,3 @@ void calculate_dcosdtheta(
 }                           
 ''', 'calculate_dcosdtheta')
 
-legendre_kernel = cp.RawKernel(r'''
-extern "C" __global__
-void calculate_legendre(    
-    const float* __restrict__ cosine, // [Np, Nd, Nd]
-    const float* __restrict__ dcosdteta, // [Np, Nd, Nd, 6]   
-    float* __restrict__ leg, // [lmax, Np, Nd, Nd]   
-    float* __restrict__ dlegdcos, // [lmax, Np, Nd, Nd] 
-    float* __restrict__ dlegdteta, // [lmax, Np, Nd, Nd, 6] 
-    const int lmax,
-    const int Np,
-    const int Nd // 12 for cube, 8 for tetrahedron
-    )                               
-
-                               
-{
-    // every thread calculates leg values only one per 6 threads writes it                            
-    int blx = blockIdx.x;
-    int thx = threadIdx.x;
-                               
-    leg[blx * Nd * Nd * (lmax+1) + thx] = 1.0f;
-    leg[blx * Nd * Nd * (lmax+1) + thx + Nd*Nd] = dot;
-
-    float lego_n_1 = 1.0f;
-    float lego_n = dot;
-    float lego_next;                           
-                               
-
-
-                             }                           
-''', 'calculate_legendre')

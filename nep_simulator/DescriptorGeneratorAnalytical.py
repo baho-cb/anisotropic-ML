@@ -21,78 +21,243 @@ Similarly instead of storing dp1dtetax and dp2dtetax separately you can keep d12
 
 np.set_printoptions(suppress=True,precision=5,linewidth=150,threshold=sys.maxsize)
 
-def _dcosdteta(p, r, dp, dr):
-    Np = p.shape[0]
-    P_i  = p[:, :, None, :]    # shape → (100, 12, 1, 3)
-    P_j  = p[:, None, :, :]    # shape → (100, 1, 12, 3)
-    dP_i = dp[:, :, None, :]     # shape → (100, 12, 1, 3)
-    dP_j = dp[:, None, :, :]     # shape → (100, 1, 12, 3)
-
-    R_i  = r[:, :, None]       # shape → (100, 12, 1)
-    R_j  = r[:, None, :]       # shape → (100, 1, 12)
-    dR_i = dr[:, :, None]        # shape → (100, 12, 1)
-    dR_j = dr[:, None, :]        # shape → (100, 1, 12)
-
-    dot_p = cp.sum(P_i * P_j, axis=-1)      # shape → (100, 12, 12)
-    dot_dp_p = cp.sum(dP_i * P_j, axis=-1)   # shape → (100, 12, 12)
-    dot_p_dp = cp.sum(P_i * dP_j, axis=-1)   # shape → (100, 12, 12)
-    num1 = dot_dp_p + dot_p_dp              # shape → (100, 12, 12)
-
-    den = R_i * R_j                         # r_i * r_j, shape → (100, 12, 12)
-    den2 = den * den                        # (r_i * r_j)^2, shape → (100, 12, 12)
-    num2 = dot_p * (dR_i * R_j + R_i * dR_j)  # shape → (100, 12, 12)
-
-    # print(num1[0])
-    # print(num2[0])
-    # exit()
-
-    dcosine_dteta = (num1 * den - num2) / den2       # shape → (100, 12, 12)
-    dcosine_dteta = dcosine_dteta.reshape(Np,-1)    
-    return dcosine_dteta
-
-def _dqdteta(drdp, dpdteta, dgdr, one_or_two):
-
-    inner_x = cp.sum(drdp * dpdteta, axis=2)  # (100, 6)
-    if(one_or_two == 1):
-        dgraddtetax = dgdr[:,:,:6] * inner_x[:, cp.newaxis, :]  # → (3, 100)
-    elif(one_or_two == 2):
-        dgraddtetax = dgdr[:,:,6:] * inner_x[:, cp.newaxis, :]
-    else:
-        raise ValueError("one_or_two must be 1 or 2")    
-    return cp.sum(dgraddtetax,  axis=2)
-
-def _dgdteta(drdp, dpdteta, dgdr, one_or_two):
-
-    # print("dgdr shape:", dgdr.shape)
-    # print("drdp shape:", drdp.shape)
-    # print("dpdteta shape:", dpdteta.shape)
-    # exit()
-
-    inner_x = cp.sum(drdp * dpdteta, axis=2)  # (100, 6)
-    if(one_or_two == 1):
-        dgraddtetax = dgdr[:,:,:6] * inner_x[:, cp.newaxis, :]  # → (3, 100)
-    elif(one_or_two == 2):
-        dgraddtetax = dgdr[:,:,6:] * inner_x[:, cp.newaxis, :]
-    else:
-        raise ValueError("one_or_two must be 1 or 2")    
-    return dgraddtetax
-
-
 
 class DescriptorGeneratorAnalytical(DescriptorGenerator):
     def generate_nep_descriptors_derivatives(self,central_pos,orientations,Nlist):
-        print('generating descriptors and derivatives')
-        self.calculate_pts(central_pos,orientations,Nlist)
-        
+        self.calc_pts_dpts(central_pos,orientations,Nlist)
+        self.calculate_derivatives()
+
+        return self._dqdteta, self._dqdxyz, self._q, self.pp, self.N_pair
+
+    def generate_nep_descriptors_derivatives_debug(self,central_pos,orientations,Nlist):
+        """
+        Not to be used in production 
+        """
+        self.calculate_pts_debug(central_pos,orientations,Nlist)
         self.calculate_derivatives()
         self.calculate_dx_derivatives()
         self.merge_derivatives()
         self.kernel_test()
-
-
-
         return self._dqdteta, self._dqdxyz, self._q, self.pp, self.N_pair
 
+    def calc_pts_dpts(self,central_pos,orientations,Nlist):
+        translate = central_pos[Nlist[:,1]]-central_pos[Nlist[:,0]]
+        translate = cp.where(translate > 0.5 * self.Lx, translate- self.Lx, translate)
+        translate = cp.where(translate <- 0.5 * self.Lx, self.Lx + translate, translate)
+        dist = cp.linalg.norm(translate,axis=1)
+        mask = cp.where(dist < self.cutoff)[0]
+
+
+        self.pairs = Nlist[mask]
+        pair0 = self.pairs[:,0]
+        pair1 = self.pairs[:,1]
+        self.pp = torch.from_dlpack(self.pairs)
+
+        translate = translate[mask]
+        N_pair = len(self.pairs)
+        self.N_pair = N_pair
+
+        QUAT1 = orientations[pair0]
+        QUAT2 = orientations[pair1]
+
+        self.quat1 = QUAT1
+        self.quat2 = QUAT2
+
+        blocks = (self.N_pair,)
+        threads_per_block = (32,)
+
+        self._P = cp.empty((self.N_pair,self.Nd,3),dtype=cp.float32)
+        self._p1dteta = cp.empty((self.N_pair,self.Nd//2,3),dtype=cp.float32) # (N_pair,6,3)
+        self._p2dteta = cp.empty((self.N_pair,self.Nd//2,3),dtype=cp.float32) # (N_pair,6,3)
+        self._r1 = cp.empty((self.N_pair,self.Nd//2),dtype=cp.float32) # (N_pair,6,3)
+        self._r2 = cp.empty((self.N_pair,self.Nd//2),dtype=cp.float32) # (N_pair,6,3)
+        self._dr1dteta = cp.empty((self.N_pair,self.Nd//2,3),dtype=cp.float32) # (N_pair,6,3)
+        self._dr2dteta = cp.empty((self.N_pair,self.Nd//2,3),dtype=cp.float32) # (N_pair,6,3)
+
+        cuda_dk.dpts_kernel(
+            blocks,
+            threads_per_block,
+            (
+                QUAT1,
+                QUAT2,
+                translate,
+                self.pts_rep,
+                self._P,
+                self._p1dteta,
+                self._p2dteta,
+                self._r1,
+                self._r2,
+                self._dr1dteta,
+                self._dr2dteta,
+                cp.int32(self.N_pair),
+                cp.int32(self.Nd)
+            )
+        )
+
+
+    def calculate_derivatives(self):
+        self.calculate_dcosdteta()    
+        self.rest()
+        
+        # self.calculate_T()
+        # self.calculate_dgdr()
+        # self.calculate_dqang_dteta()
+
+
+    def calculate_dcosdteta(self):
+
+        blocks = (self.N_pair,)
+        threads_per_block = (self.Nd*self.Nd,)
+
+        self._r12 = cp.concatenate((self._r1, self._r2),axis=1)
+        self._p12dteta = cp.concatenate((self._p1dteta, self._p2dteta),axis=1)
+        self._dr12dteta = cp.concatenate((self._dr1dteta, self._dr2dteta),axis=1)
+
+        self._cosine = cp.empty((self.N_pair, self.Nd, self.Nd), dtype=cp.float32)
+        self._dcosdteta = cp.zeros((self.N_pair, self.Nd, self.Nd, 6), dtype=cp.float32)
+        self._dcosdxyz = cp.zeros((self.N_pair, self.Nd, self.Nd, 3), dtype=cp.float32)
+        self._leg = cp.empty((self.N_pair, self.lmax, self.Nd, self.Nd), dtype=cp.float32)
+        self._dlegdcos = cp.empty((self.N_pair, self.lmax, self.Nd, self.Nd), dtype=cp.float32)
+    
+        cuda_dk.cosine_kernel(
+            blocks,
+            threads_per_block,
+            (
+                self._P,
+                self._r12,
+                self._p12dteta,
+                self._dr12dteta,
+                self._cosine,
+                self._dcosdteta,
+                self._dcosdxyz,
+                self._leg,
+                self._dlegdcos,
+                cp.int32(self.lmax),
+                cp.int32(self.N_pair),
+                cp.int32(self.Nd)
+            )
+        )
+
+
+    def rest(self):
+        self._dgdr = cp.empty((self.N_pair,self.nrad + 1,self.Nd),dtype=cp.float32) # (N_pair,6,3)
+        self._drdp = cp.empty((self.N_pair,self.Nd,3),dtype=cp.float32) # (N_pair,6,3)
+        self._grad = cp.empty((self.N_pair,self.nrad + 1,self.Nd),dtype=cp.float32) # (N_pair,6,3)
+
+        blocks = (self.N_pair,)
+        threads_per_block = (self.Nd,)
+        n_chebysev = self.nrad + 1
+        
+        cuda_dk2.grad_kernel(
+            blocks,
+            threads_per_block,
+            (
+                self._P,
+                self._r12,    
+                self._dgdr,
+                self._drdp,
+                self._grad,
+                self.nep_cutoff,
+                n_chebysev,
+                cp.int32(self.N_pair),
+                cp.int32(self.Nd)
+            )
+        )
+
+        self._dgdteta = cp.empty((self.N_pair,self.nrad + 1,self.Nd, 6),dtype=cp.float32) # (N_pair,6,3)
+        self._dgdxyz = cp.empty((self.N_pair,self.nrad + 1,self.Nd, 3),dtype=cp.float32) # (N_pair,6,3)
+        n_chebysev = self.nrad + 1
+        blocks = (self.N_pair*n_chebysev,)
+        threads_per_block = (self.Nd,)
+        n_chebysev = self.nrad + 1
+        
+        cuda_dk2.dgdteta_kernel(
+            blocks,
+            threads_per_block,
+            (
+                self._dgdr,
+                self._drdp,    
+                self._p12dteta,
+                self._dgdteta,
+                self._dgdxyz,
+                n_chebysev,
+                cp.int32(self.N_pair),
+                cp.int32(self.Nd)
+            )
+        )
+
+        self._dlegdcos = self._dlegdcos.reshape(self.N_pair, self.lmax, self.Nd * self.Nd) 
+        self._dcosdteta = self._dcosdteta.reshape(self.N_pair, self.Nd * self.Nd, 6)  #
+        self._dcosdxyz = self._dcosdxyz.reshape(self.N_pair,144,3)
+
+        self._dlegdteta = self._dlegdcos[:,:,:,cp.newaxis] * self._dcosdteta[:,cp.newaxis,:,:]  # shape (N_pair, lmax, Nd, Nd)
+        self._dlegdxyz = self._dlegdcos[:,:,:,cp.newaxis] * self._dcosdxyz[:,cp.newaxis,:,:]  # shape (N_pair, lmax, Nd, Nd)
+
+
+        out = cp.empty((self.N_pair, (self.nang+1) * self.lmax, 144, 6), dtype=cp.float32)
+        self.out_xyz = cp.empty((self.N_pair, (self.nang+1) * self.lmax, 144, 3), dtype=cp.float32)
+        self._gang = cp.empty((self.N_pair, (self.nang+1) * self.lmax, 144), dtype=cp.float32)
+
+        self._gradforang = self._grad[:,:self.nang+1]
+        self._gradforang = cp.ascontiguousarray(self._gradforang)
+        self._dgdtetaforang = self._dgdteta[:,:self.nang+1]
+        self._dgdtetaforang = cp.ascontiguousarray(self._dgdtetaforang)
+        self._dgdxyzforang = self._dgdxyz[:,:self.nang+1]
+        self._dgdxyzforang = cp.ascontiguousarray(self._dgdxyzforang)
+        blocks = (self.N_pair*(self.nang+1)*self.lmax,)
+        threads_per_block = (self.Nd*self.Nd*6,)
+
+        cuda_dk2.dqang_dteta_kernel(
+            blocks, 
+            threads_per_block,
+            (self._gradforang, 
+            self._leg, 
+            self._dlegdteta, 
+            self._dgdtetaforang,
+            out, 
+            cp.int32(self.N_pair),
+            cp.int32(self.nang + 1), 
+            cp.int32(self.lmax),
+            cp.int32(self.Nd)
+            ))
+        
+        blocks = (self.N_pair*(self.nang+1)*self.lmax,)
+        threads_per_block = (self.Nd*self.Nd*3,)
+        
+        cuda_dk2.dqang_dxyz_kernel(
+            blocks, 
+            threads_per_block,
+            (self._gradforang, 
+            self._leg, 
+            self._dlegdxyz, 
+            self._dgdxyzforang,
+            self.out_xyz, 
+            self._gang,
+            cp.int32(self.N_pair),
+            cp.int32(self.nang + 1), 
+            cp.int32(self.lmax),
+            cp.int32(self.Nd)
+            ))
+        
+        self._q_rad = cp.sum(self._grad,axis=-1)
+        self._q_ang = cp.sum(self._gang,axis=-1)
+        
+        self._dqraddteta = cp.sum(self._dgdteta,axis=-2)
+        self._dqraddxyz = cp.sum(self._dgdxyz,axis=-2)
+
+        self._dqangdteta = cp.sum(out,axis=-2)
+        self._dqangdxyz = cp.sum(self.out_xyz,axis=-2)
+
+        self._dqdteta = cp.concatenate((self._dqraddteta,self._dqangdteta),axis=1)
+        self._dqdxyz = cp.concatenate((self._dqraddxyz,self._dqangdxyz),axis=1)
+        self._q = cp.concatenate((self._q_rad,self._q_ang),axis=1)
+
+
+
+
+
+
+#################### DEBUG - CHECK MATH ETC ##############3
 
     def kernel_test(self):
         for i in range(6):
@@ -110,7 +275,7 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
                 exit()
 
 
-    def calculate_pts(self,central_pos,orientations,Nlist):
+    def calculate_pts_debug(self,central_pos,orientations,Nlist):
         translate = central_pos[Nlist[:,1]]-central_pos[Nlist[:,0]]
         translate = cp.where(translate > 0.5 * self.Lx, translate- self.Lx, translate)
         translate = cp.where(translate <- 0.5 * self.Lx, self.Lx + translate, translate)
@@ -196,9 +361,9 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
             )
         )
 
-    def calculate_derivatives(self):
+    def calculate_derivatives_debug(self):
         self.calculate_dpdteta()
-        self.calculate_dcosdteta()    
+        self.calculate_dcosdteta_debug()    
         self.calculate_cosine()
         self.calculate_T()
         self.calculate_dgdr()
@@ -314,7 +479,7 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
 
 
 
-    def calculate_dcosdteta(self):
+    def calculate_dcosdteta_debug(self):
         self.dcosinedteta_list = []
 
         dp12dtetax = cp.zeros((self.N_pair, self.Nd, 3), dtype=cp.float32)
@@ -942,3 +1107,60 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
 
     def dummy(self):
         pass 
+
+
+def _dcosdteta(p, r, dp, dr):
+    Np = p.shape[0]
+    P_i  = p[:, :, None, :]    # shape → (100, 12, 1, 3)
+    P_j  = p[:, None, :, :]    # shape → (100, 1, 12, 3)
+    dP_i = dp[:, :, None, :]     # shape → (100, 12, 1, 3)
+    dP_j = dp[:, None, :, :]     # shape → (100, 1, 12, 3)
+
+    R_i  = r[:, :, None]       # shape → (100, 12, 1)
+    R_j  = r[:, None, :]       # shape → (100, 1, 12)
+    dR_i = dr[:, :, None]        # shape → (100, 12, 1)
+    dR_j = dr[:, None, :]        # shape → (100, 1, 12)
+
+    dot_p = cp.sum(P_i * P_j, axis=-1)      # shape → (100, 12, 12)
+    dot_dp_p = cp.sum(dP_i * P_j, axis=-1)   # shape → (100, 12, 12)
+    dot_p_dp = cp.sum(P_i * dP_j, axis=-1)   # shape → (100, 12, 12)
+    num1 = dot_dp_p + dot_p_dp              # shape → (100, 12, 12)
+
+    den = R_i * R_j                         # r_i * r_j, shape → (100, 12, 12)
+    den2 = den * den                        # (r_i * r_j)^2, shape → (100, 12, 12)
+    num2 = dot_p * (dR_i * R_j + R_i * dR_j)  # shape → (100, 12, 12)
+
+    # print(num1[0])
+    # print(num2[0])
+    # exit()
+
+    dcosine_dteta = (num1 * den - num2) / den2       # shape → (100, 12, 12)
+    dcosine_dteta = dcosine_dteta.reshape(Np,-1)    
+    return dcosine_dteta
+
+def _dqdteta(drdp, dpdteta, dgdr, one_or_two):
+
+    inner_x = cp.sum(drdp * dpdteta, axis=2)  # (100, 6)
+    if(one_or_two == 1):
+        dgraddtetax = dgdr[:,:,:6] * inner_x[:, cp.newaxis, :]  # → (3, 100)
+    elif(one_or_two == 2):
+        dgraddtetax = dgdr[:,:,6:] * inner_x[:, cp.newaxis, :]
+    else:
+        raise ValueError("one_or_two must be 1 or 2")    
+    return cp.sum(dgraddtetax,  axis=2)
+
+def _dgdteta(drdp, dpdteta, dgdr, one_or_two):
+
+    # print("dgdr shape:", dgdr.shape)
+    # print("drdp shape:", drdp.shape)
+    # print("dpdteta shape:", dpdteta.shape)
+    # exit()
+
+    inner_x = cp.sum(drdp * dpdteta, axis=2)  # (100, 6)
+    if(one_or_two == 1):
+        dgraddtetax = dgdr[:,:,:6] * inner_x[:, cp.newaxis, :]  # → (3, 100)
+    elif(one_or_two == 2):
+        dgraddtetax = dgdr[:,:,6:] * inner_x[:, cp.newaxis, :]
+    else:
+        raise ValueError("one_or_two must be 1 or 2")    
+    return dgraddtetax

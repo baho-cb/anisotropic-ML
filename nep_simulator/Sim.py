@@ -209,8 +209,14 @@ class Sim():
         self.t_s2 = 0
         self.t_nlist = 0
 
+        self._t_gen = 0
+        self._t_eval = 0
+        self._t_s1 = 0
+        self._t_s2 = 0
+        self._t_nlist = 0
+
     def run(self,Nsteps):
-        self.is_sync = 1
+        self.is_sync = 0
         self.descriptor_generator.setSync(self.is_sync)
         self.evaluator.setSync(self.is_sync)
         self.set_timers()
@@ -264,13 +270,40 @@ class Sim():
         # g_nep, pp, Npair = self.descriptor_generator.generate_nep_descriptors(self.central_pos,self.orientations,self.Nlist)
         # self.forces, self.torks = self.evaluator.evaluate_interactions(g_nep,pp,Npair)  
         
+        if(self.is_sync==1):
+                cp.cuda.Stream.null.synchronize()
+        t0 = time.time()   
+
         _dqdteta, _dqdxyz, _q, pp, Npair = self.descriptor_generator.generate_nep_descriptors_derivatives(self.central_pos,self.orientations,self.Nlist)
+
+        if(self.is_sync==1):
+                cp.cuda.Stream.null.synchronize()
+        t1 = time.time()   
+
         self.forces, self.torks = self.evaluator.evaluate_interactions_analytical(_q,pp,Npair,_dqdteta,_dqdxyz)
    
+        if(self.is_sync==1):
+                cp.cuda.Stream.null.synchronize()
+        t2 = time.time()   
 
         self.integrate_step_two()        
+
+        if(self.is_sync==1):
+                cp.cuda.Stream.null.synchronize()
+        t3 = time.time()   
+
         self.integrate_step_one()
+
+        if(self.is_sync==1):
+                cp.cuda.Stream.null.synchronize()
+        t4 = time.time()   
         
+        self._t_gen += t1-t0
+        self._t_eval += t2-t1
+        self._t_s1 += t3-t2
+        self._t_s2 += t4-t3
+
+
         
     def step(self):
         if(self.is_sync==1):
