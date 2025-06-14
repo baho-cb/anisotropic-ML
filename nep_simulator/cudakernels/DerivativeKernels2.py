@@ -80,6 +80,7 @@ void calculate_dgdteta(
     const float* __restrict__ drdp, // [Np, Nd, 3]   
     const float* __restrict__ dpdteta, // [Np, Nd, 3]   
     float* __restrict__ dgdteta, // [Np, n_cheb, Nd, 6] 
+    float* __restrict__ dgdxyz, // [Np, n_cheb, Nd, 6] 
     const int n_cheb,                       
     const int Np,
     const int Nd // 12 for cube, 8 for tetrahedron
@@ -94,6 +95,9 @@ void calculate_dgdteta(
     if (blx >= (Np*n_cheb) || thx >= Nd) return;
                            
     int index_target = blx*Nd*6 + thx*6;  
+    int index_dgdxyz = blx*Nd*3 + thx*3;  
+                              
+                              
     //int index_dpdteta = (blx%Np)*Nd*3 + thx*3; 
     int index_dpdteta = (blx/n_cheb)*Nd*3 + thx*3; 
     int index_dgdr = blx*Nd + thx;    
@@ -115,12 +119,14 @@ void calculate_dgdteta(
     float inner_dy2 = dpdtetaz*drdp_x - dpdtetax*drdp_z;
     float inner_dz2 = -dpdtetay*drdp_x + dpdtetax*drdp_y;                                                     
                                                                                                         
-
+    float dpdxyz = 0.5f; 
+                              
     if(thx >= ndh)
     {
        inner_dx1 = 0.0f;
        inner_dy1 = 0.0f;
-       inner_dz1 = 0.0f;                       
+       inner_dz1 = 0.0f;  
+       dpdxyz = -0.5f;                                            
     }                   
 
     if(thx < ndh)
@@ -129,6 +135,10 @@ void calculate_dgdteta(
         inner_dy2 = 0.0f;
         inner_dz2 = 0.0f;
     }
+                              
+    dgdxyz[index_dgdxyz + 0] = v_dgdr * drdp_x * dpdxyz;                         
+    dgdxyz[index_dgdxyz + 1] = v_dgdr * drdp_y * dpdxyz;                         
+    dgdxyz[index_dgdxyz + 2] = v_dgdr * drdp_z * dpdxyz;                         
                               
     dgdteta[index_target + 0] = v_dgdr * inner_dx1;                          
     dgdteta[index_target + 1] = v_dgdr * inner_dy1;                          
@@ -190,14 +200,69 @@ void dqang_dteta_kernel(
     float term3 = g_rad[index_grad_ij]*g_rad[index_grad_ik]* dlegdteta[index_dlegdteta];                                                                                                                          
     
     out[index_target] = term1 + term2 + term3;                              
-                                                                
-                                  
-                                  
-                                  
-                                  
+                                                                                   
                                   
 }
 ''', 'dqang_dteta_kernel')
+
+
+dqang_dxyz_kernel = cp.RawKernel(r'''
+
+extern "C" __global__
+void dqang_dteta_kernel(
+    const float *__restrict__ g_rad, // [Np, nangp1, Nd]
+    const float *__restrict__ leg, // [Np, lmax, Nd*Nd]
+    const float *__restrict__ dlegdxyz, // [Np, lmax, Nd*Nd, 3]
+    const float *__restrict__ dgdxyz, // [Np, nangp1, Nd, 3]
+    float       *__restrict__ out, // [Np, nangp1*lmax, Nd*Nd, 3]
+    const int Np,                       
+    const int nangp1,
+    const int lmax,
+    const int Nd)   
+{
+    int blx = blockIdx.x; // 0 to Np*nangp1*lmax
+    int thx = threadIdx.x; // 0 to Nd*Nd*3
+                                  
+    int index_grad_ij = (blx/lmax) * Nd + (thx/3)%Nd;  
+    int index_grad_ik = (blx/lmax) * Nd + (thx/3)/(Nd);  
+
+    int g = blx/lmax; 
+    int base = g * Nd * 3;                                                             
+    
+    int mu = thx % 3;
+    int tmp = thx / 3;    
+    int j = tmp % Nd; 
+    int i = tmp / Nd;     
+                                  
+    int p = blx / (nangp1 * lmax);      // 0  Np-1
+    int l = blx % lmax;                 // 0  lmax-1
+
+    int index_leg       = (p * lmax + l) * Nd*Nd     + thx/3;
+    int index_dlegdteta = (p * lmax + l) * Nd*Nd*3   + thx;
+                                                                                                                        
+                                                                                                            
+    int index_dgdteta_ik = base + i * 3 + mu;                                                            
+    int index_dgdteta_ij = base + j * 3 + mu;                                                            
+
+    int index_target = blx*Nd*Nd*3 + thx;  
+
+    float term1 = dgdxyz[index_dgdteta_ij] * g_rad[index_grad_ik] * leg[index_leg];
+    float term2 = dgdxyz[index_dgdteta_ik] * g_rad[index_grad_ij] * leg[index_leg];                                                                                                                          
+    float term3 = g_rad[index_grad_ij]*g_rad[index_grad_ik]* dlegdxyz[index_dlegdteta];                                                                                                                          
+    
+    out[index_target] = term1 + term2 + term3;                              
+                                                                                   
+                                  
+}
+''', 'dqang_dteta_kernel')
+
+
+
+
+
+
+
+
 
 
 debug_kernel = cp.RawKernel(r'''

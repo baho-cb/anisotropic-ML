@@ -173,6 +173,7 @@ void calculate_dcosdtheta(
     const float* __restrict__ dr12dteta, // [Np, Nd, 3] 
     float* __restrict__ cosine, // [Np, Nd*Nd] 
     float* __restrict__ dcosdteta, // [Np, Nd*Nd, 6]
+    float* __restrict__ dcosdxyz, // [Np, Nd*Nd, 3]
     float* __restrict__ leg, // [Np, lmax, Nd, Nd]                                                     
     float* __restrict__ dlegdcos, // [Np, lmax, Nd, Nd]                                                     
     const int lmax,
@@ -193,6 +194,7 @@ void calculate_dcosdtheta(
     int indexj = blx * (Nd * 3) + j12 * 3;                                                  
     int index_cos = blx * Nd * Nd + thx; // Index for the cosine value in the output array
     int index_dcos = blx * Nd * Nd * 6 + thx * 6; // Index for the dcos value in the output array
+    int index_dxyz = blx * Nd * Nd * 3 + thx * 3; 
     int index_ri = blx * Nd + i12; // Index for the norm of the first point
     int index_rj = blx * Nd + j12; // Index for the norm of the second point   
  
@@ -212,7 +214,13 @@ void calculate_dcosdtheta(
     float dpi1z = 0.f;
     float dri1x = 0.f;                         
     float dri1y = 0.f;                         
-    float dri1z = 0.f;                         
+    float dri1z = 0.f;   
+
+    float dpi_trans = -0.5f;    
+    float drix_trans = -(pts12[indexi + 0]/r12[index_ri])*0.5f;
+    float driy_trans = -(pts12[indexi + 1]/r12[index_ri])*0.5f;
+    float driz_trans = -(pts12[indexi + 2]/r12[index_ri])*0.5f;
+                                                                                                 
     if( i12 < ndh)
     {
     dpi1x = dp12dteta[indexi + 0];
@@ -220,7 +228,12 @@ void calculate_dcosdtheta(
     dpi1z = dp12dteta[indexi + 2];
     dri1x = dr12dteta[indexi + 0];                         
     dri1y = dr12dteta[indexi + 1];                         
-    dri1z = dr12dteta[indexi + 2];                         
+    dri1z = dr12dteta[indexi + 2];
+
+    dpi_trans = 0.5f;            
+    drix_trans = -drix_trans;                                                                
+    driy_trans = -driy_trans;                                                                
+    driz_trans = -driz_trans;                                                                
     }
  
     float dpj1x = 0.f;
@@ -228,8 +241,13 @@ void calculate_dcosdtheta(
     float dpj1z = 0.f;
     float drj1x = 0.f;                         
     float drj1y = 0.f;                         
-    float drj1z = 0.f;                         
-                                                      
+    float drj1z = 0.f; 
+                                                     
+    float dpj_trans = -0.5f;
+    float drjx_trans = -(pts12[indexj + 0]/r12[index_rj])*0.5f;
+    float drjy_trans = -(pts12[indexj + 1]/r12[index_rj])*0.5f;
+    float drjz_trans = -(pts12[indexj + 2]/r12[index_rj])*0.5f;
+                                                                               
     if( j12 < ndh)
     {
     dpj1x = dp12dteta[indexj + 0];
@@ -237,9 +255,16 @@ void calculate_dcosdtheta(
     dpj1z = dp12dteta[indexj + 2];
     drj1x = dr12dteta[indexj + 0];                                                  
     drj1y = dr12dteta[indexj + 1];                                                  
-    drj1z = dr12dteta[indexj + 2];                                                  
+    drj1z = dr12dteta[indexj + 2];
+
+    dpj_trans = 0.5f;
+    drjx_trans = -drjx_trans;                                                                
+    drjy_trans = -drjy_trans;                                                                
+    drjz_trans = -drjz_trans;                                                                
+                                                                                                                                 
     }
- 
+                             
+                     
     // for dx1 
     float dot_dpi_pj = -dpi1z*pts12[indexj + 1] + dpi1y*pts12[indexj + 2];
     float dot_pi_dpj = -dpj1z*pts12[indexi + 1] + dpj1y*pts12[indexi + 2];
@@ -265,6 +290,34 @@ void calculate_dcosdtheta(
     num2 *= dotp;
     num1 = (dot_dpi_pj+dot_pi_dpj);
     dcosdteta[index_dcos + 2] = (num1*den - num2) / (den*den); // dz1                                                  
+
+    // for dx_trans
+    float dot_dpi_pj_trans = dpi_trans * pts12[indexj + 0];
+    float dot_pi_dpj_trans = pts12[indexi + 0] * dpj_trans;                                
+    
+    num2 = r12[index_ri] * drjx_trans + r12[index_rj] * drix_trans;
+    num2 *= dotp;
+    num1 = (dot_dpi_pj_trans+dot_pi_dpj_trans);
+    dcosdxyz[index_dxyz + 0] = (num1*den - num2) / (den*den); // dx_trans
+                             
+    // for dy_trans
+    dot_dpi_pj_trans = dpi_trans * pts12[indexj + 1];
+    dot_pi_dpj_trans = pts12[indexi + 1] * dpj_trans;                                
+    
+    num2 = r12[index_ri] * drjy_trans + r12[index_rj] * driy_trans;
+    num2 *= dotp;
+    num1 = (dot_dpi_pj_trans+dot_pi_dpj_trans);
+    dcosdxyz[index_dxyz + 1] = (num1*den - num2) / (den*den); // dy_trans
+                             
+    // for dz_trans
+    dot_dpi_pj_trans = dpi_trans * pts12[indexj + 2];
+    dot_pi_dpj_trans = pts12[indexi + 2] * dpj_trans;                                
+    
+    num2 = r12[index_ri] * drjz_trans + r12[index_rj] * driz_trans;
+    num2 *= dotp;
+    num1 = (dot_dpi_pj_trans+dot_pi_dpj_trans);
+    dcosdxyz[index_dxyz + 2] = (num1*den - num2) / (den*den); // dz_trans
+                             
 
     // for dx2
     float dpi2x = 0.f;

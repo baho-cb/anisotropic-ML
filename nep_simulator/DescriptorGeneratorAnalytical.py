@@ -368,6 +368,7 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
 
         self._cosine = cp.empty((self.N_pair, self.Nd, self.Nd), dtype=cp.float32)
         self._dcosdteta = cp.zeros((self.N_pair, self.Nd, self.Nd, 6), dtype=cp.float32)
+        self._dcosdxyz = cp.zeros((self.N_pair, self.Nd, self.Nd, 3), dtype=cp.float32)
         self._leg = cp.empty((self.N_pair, self.lmax, self.Nd, self.Nd), dtype=cp.float32)
         self._dlegdcos = cp.empty((self.N_pair, self.lmax, self.Nd, self.Nd), dtype=cp.float32)
 
@@ -415,6 +416,7 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
                 self._dr12dteta,
                 self._cosine,
                 self._dcosdteta,
+                self._dcosdxyz,
                 self._leg,
                 self._dlegdcos,
                 cp.int32(self.lmax),
@@ -618,6 +620,7 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
 
 
         self._dgdteta = cp.empty((self.N_pair,self.nrad + 1,self.Nd, 6),dtype=cp.float32) # (N_pair,6,3)
+        self._dgdxyz = cp.empty((self.N_pair,self.nrad + 1,self.Nd, 3),dtype=cp.float32) # (N_pair,6,3)
         n_chebysev = self.nrad + 1
         blocks = (self.N_pair*n_chebysev,)
         threads_per_block = (self.Nd,)
@@ -631,6 +634,7 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
                 self._drdp,    
                 self._p12dteta,
                 self._dgdteta,
+                self._dgdxyz,
                 n_chebysev,
                 cp.int32(self.N_pair),
                 cp.int32(self.Nd)
@@ -647,8 +651,10 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
         # exit()
         self._dlegdcos = self._dlegdcos.reshape(self.N_pair, self.lmax, self.Nd * self.Nd) 
         self._dcosdteta = self._dcosdteta.reshape(self.N_pair, self.Nd * self.Nd, 6)  #
+        self._dcosdxyz = self._dcosdxyz.reshape(self.N_pair,144,3)
 
         self._dlegdteta = self._dlegdcos[:,:,:,cp.newaxis] * self._dcosdteta[:,cp.newaxis,:,:]  # shape (N_pair, lmax, Nd, Nd)
+        self._dlegdxyz = self._dlegdcos[:,:,:,cp.newaxis] * self._dcosdxyz[:,cp.newaxis,:,:]  # shape (N_pair, lmax, Nd, Nd)
         # print(self._dlegdteta.shape)
         # exit()
         # print(mu.maxerr(self.dlegdteta_list[0], self._dlegdteta[:, :, :,0]))
@@ -698,15 +704,18 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
             self.dqangdteta_list.append(cp.sum(dg_ang_dteta, axis=-1))
             self.dgangdteta_list.append(dg_ang_dteta)
 
-
+        
         out = cp.empty((self.N_pair, (self.nang+1) * self.lmax, 144, 6), dtype=cp.float32)
+        self.out_xyz = cp.empty((self.N_pair, (self.nang+1) * self.lmax, 144, 3), dtype=cp.float32)
 
-        blocks = (self.N_pair*(self.nang+1)*self.lmax,)
-        threads_per_block = (self.Nd*self.Nd*6,)
         self._gradforang = self._grad[:,:self.nang+1]
         self._gradforang = cp.ascontiguousarray(self._gradforang)
         self._dgdtetaforang = self._dgdteta[:,:self.nang+1]
         self._dgdtetaforang = cp.ascontiguousarray(self._dgdtetaforang)
+        self._dgdxyzforang = self._dgdxyz[:,:self.nang+1]
+        self._dgdxyzforang = cp.ascontiguousarray(self._dgdxyzforang)
+        blocks = (self.N_pair*(self.nang+1)*self.lmax,)
+        threads_per_block = (self.Nd*self.Nd*6,)
 
         cuda_dk2.dqang_dteta_kernel(
             blocks, 
@@ -721,6 +730,25 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
             cp.int32(self.lmax),
             cp.int32(self.Nd)
             ))
+        
+        blocks = (self.N_pair*(self.nang+1)*self.lmax,)
+        threads_per_block = (self.Nd*self.Nd*3,)
+        
+        cuda_dk2.dqang_dxyz_kernel(
+            blocks, 
+            threads_per_block,
+            (self._gradforang, 
+            self._leg, 
+            self._dlegdxyz, 
+            self._dgdxyzforang,
+            self.out_xyz, 
+            cp.int32(self.N_pair),
+            cp.int32(self.nang + 1), 
+            cp.int32(self.lmax),
+            cp.int32(self.Nd)
+            ))
+        
+        
 
 
 
@@ -765,6 +793,10 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
         self.dqdz = cp.sum(self.dgdz, axis=2)
         self.dqdz = self.dqdz.T
 
+        # print(mu.maxerr(self._dgdxyz[:,:,:,0],self.dgdx))
+        # print(mu.maxerr(self._dgdxyz[:,:,:,1],self.dgdy))
+        # print(mu.maxerr(self._dgdxyz[:,:,:,2],self.dgdz))
+        # exit()
    
         self.dpdx = cp.zeros((self.N_pair, 6*2, 3), dtype=cp.float32)
         self.dpdy = cp.zeros((self.N_pair, 6*2, 3), dtype=cp.float32)
@@ -803,6 +835,11 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
         self.dcosine_dx = _dcosdteta(self.P, self.r, self.dpdx, self.drdx)
         self.dcosine_dy = _dcosdteta(self.P, self.r, self.dpdy, self.drdy)
         self.dcosine_dz = _dcosdteta(self.P, self.r, self.dpdz, self.drdz)
+
+        # print(mu.maxerr(self._dcosdxyz[:,:,0],self.dcosine_dx))
+        # print(mu.maxerr(self._dcosdxyz[:,:,1],self.dcosine_dy))
+        # print(mu.maxerr(self._dcosdxyz[:,:,2],self.dcosine_dz))
+        # exit()
 
         self.dpl_dx = self.dlegdcos * self.dcosine_dx[:, cp.newaxis, :]
         self.dpl_dy = self.dlegdcos * self.dcosine_dy[:, cp.newaxis, :]
@@ -858,6 +895,11 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
         self.dqangdz = cp.sum(dg_ang_dz, axis=-1) 
         self.dqangdz = self.dqangdz.T
         self.dqdz = cp.concatenate((self.dqdz,self.dqangdz),axis=0)
+
+        print(mu.maxerr(self.out_xyz[:,:,:,0],dg_ang_dx))
+        print(mu.maxerr(self.out_xyz[:,:,:,1],dg_ang_dy))
+        print(mu.maxerr(self.out_xyz[:,:,:,2],dg_ang_dz))
+        exit()
 
         self.dqdxyz = []
         self.dqdxyz.append(self.dqdx.T)
