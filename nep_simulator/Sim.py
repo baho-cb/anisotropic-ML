@@ -261,25 +261,12 @@ class Sim():
         print('Done')        
 
     def step_analytical(self):
-        g_nep, pp, Npair = self.descriptor_generator.generate_nep_descriptors(self.central_pos,self.orientations,self.Nlist)
-        self.forces, self.torks = self.evaluator.evaluate_interactions(g_nep,pp,Npair)  
+        # g_nep, pp, Npair = self.descriptor_generator.generate_nep_descriptors(self.central_pos,self.orientations,self.Nlist)
+        # self.forces, self.torks = self.evaluator.evaluate_interactions(g_nep,pp,Npair)  
         
-        g_nep0 = g_nep[:Npair]
-        dqalldteta_list, dqdxyz, pp, Npair = self.descriptor_generator.generate_nep_descriptors_derivatives(self.central_pos,self.orientations,self.Nlist)
-        # dqdx = self.descriptor_generator.dqdx
-        
-
-        t_anal = self.evaluator.evaluate_interactions_analytical(g_nep0,pp,Npair,dqalldteta_list,dqdxyz)
+        _dqdteta, _dqdxyz, _q, pp, Npair = self.descriptor_generator.generate_nep_descriptors_derivatives(self.central_pos,self.orientations,self.Nlist)
+        self.forces, self.torks = self.evaluator.evaluate_interactions_analytical(_q,pp,Npair,_dqdteta,_dqdxyz)
    
-        plt.figure(1)
-        xx = np.linspace(-1,1,1000)
-        plt.plot(xx,xx,'k--')
-        plt.scatter(cp.asnumpy(t_anal), cp.asnumpy(self.torks[:,0]), s=1)
-        plt.xlabel('Analytical Torque')
-        plt.ylabel('Numerical Torque')
-        plt.show()
-        exit()
-
 
         self.integrate_step_two()        
         self.integrate_step_one()

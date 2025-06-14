@@ -87,8 +87,28 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
         self.calculate_derivatives()
         self.calculate_dx_derivatives()
         self.merge_derivatives()
+        self.kernel_test()
 
-        return self.dqalldteta_list, self.dqdxyz, self.pp, self.N_pair
+
+
+        return self._dqdteta, self._dqdxyz, self._q, self.pp, self.N_pair
+
+
+    def kernel_test(self):
+        for i in range(6):
+            q_true = self.dqalldteta_list[i]
+            err = mu.maxerr(q_true,self._dqdteta[:,:,i])
+            if(err > 0.01):
+                print('e123')
+                exit()
+
+        for i in range(3):
+            q_true = self.dqdxyz[i]
+            err = mu.maxerr(q_true,self._dqdxyz[:,:,i])
+            if(err > 0.01):
+                print('e123')
+                exit()
+
 
     def calculate_pts(self,central_pos,orientations,Nlist):
         translate = central_pos[Nlist[:,1]]-central_pos[Nlist[:,0]]
@@ -707,6 +727,7 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
         
         out = cp.empty((self.N_pair, (self.nang+1) * self.lmax, 144, 6), dtype=cp.float32)
         self.out_xyz = cp.empty((self.N_pair, (self.nang+1) * self.lmax, 144, 3), dtype=cp.float32)
+        self.g_ang = cp.empty((self.N_pair, (self.nang+1) * self.lmax, 144), dtype=cp.float32)
 
         self._gradforang = self._grad[:,:self.nang+1]
         self._gradforang = cp.ascontiguousarray(self._gradforang)
@@ -742,13 +763,25 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
             self._dlegdxyz, 
             self._dgdxyzforang,
             self.out_xyz, 
+            self.g_ang,
             cp.int32(self.N_pair),
             cp.int32(self.nang + 1), 
             cp.int32(self.lmax),
             cp.int32(self.Nd)
             ))
         
+        self._q_rad = cp.sum(self.g_rad,axis=-1)
+        self._q_ang = cp.sum(self.g_ang,axis=-1)
         
+        self._dqraddteta = cp.sum(self._dgdteta,axis=-2)
+        self._dqraddxyz = cp.sum(self._dgdxyz,axis=-2)
+
+        self._dqangdteta = cp.sum(out,axis=-2)
+        self._dqangdxyz = cp.sum(self.out_xyz,axis=-2)
+
+        self._dqdteta = cp.concatenate((self._dqraddteta,self._dqangdteta),axis=1)
+        self._dqdxyz = cp.concatenate((self._dqraddxyz,self._dqangdxyz),axis=1)
+        self._q = cp.concatenate((self._q_rad,self._q_ang),axis=1)
 
 
 
@@ -896,10 +929,10 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
         self.dqangdz = self.dqangdz.T
         self.dqdz = cp.concatenate((self.dqdz,self.dqangdz),axis=0)
 
-        print(mu.maxerr(self.out_xyz[:,:,:,0],dg_ang_dx))
-        print(mu.maxerr(self.out_xyz[:,:,:,1],dg_ang_dy))
-        print(mu.maxerr(self.out_xyz[:,:,:,2],dg_ang_dz))
-        exit()
+        # print(mu.maxerr(self.out_xyz[:,:,:,0],dg_ang_dx))
+        # print(mu.maxerr(self.out_xyz[:,:,:,1],dg_ang_dy))
+        # print(mu.maxerr(self.out_xyz[:,:,:,2],dg_ang_dz))
+        # exit()
 
         self.dqdxyz = []
         self.dqdxyz.append(self.dqdx.T)

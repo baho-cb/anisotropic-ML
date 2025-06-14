@@ -215,6 +215,7 @@ void dqang_dteta_kernel(
     const float *__restrict__ dlegdxyz, // [Np, lmax, Nd*Nd, 3]
     const float *__restrict__ dgdxyz, // [Np, nangp1, Nd, 3]
     float       *__restrict__ out, // [Np, nangp1*lmax, Nd*Nd, 3]
+    float       *__restrict__ g_ang, // [Np, nangp1*lmax, Nd*Nd]
     const int Np,                       
     const int nangp1,
     const int lmax,
@@ -225,6 +226,8 @@ void dqang_dteta_kernel(
                                   
     int index_grad_ij = (blx/lmax) * Nd + (thx/3)%Nd;  
     int index_grad_ik = (blx/lmax) * Nd + (thx/3)/(Nd);  
+                                 
+    int index_g_ang = blx*Nd*Nd + thx/3;                             
 
     int g = blx/lmax; 
     int base = g * Nd * 3;                                                             
@@ -251,7 +254,7 @@ void dqang_dteta_kernel(
     float term3 = g_rad[index_grad_ij]*g_rad[index_grad_ik]* dlegdxyz[index_dlegdteta];                                                                                                                          
     
     out[index_target] = term1 + term2 + term3;                              
-                                                                                   
+    g_ang[index_g_ang] = g_rad[index_grad_ij]*g_rad[index_grad_ik]*leg[index_leg];                                                                               
                                   
 }
 ''', 'dqang_dteta_kernel')
