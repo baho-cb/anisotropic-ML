@@ -191,8 +191,7 @@ void dqang_dteta_kernel(
     int index_dgdteta_ik = base + i * 6 + mu;                                                            
     int index_dgdteta_ij = base + j * 6 + mu;                                                            
 
- //   int index_leg = (blx/nangp1)*Nd*Nd + thx/6;
- //   int index_dlegdteta = (blx/nangp1)*Nd*Nd*6 + thx;
+
     int index_target = blx*Nd*Nd*6 + thx;  
 
     float term1 = dgdteta[index_dgdteta_ij] * g_rad[index_grad_ik] * leg[index_leg];

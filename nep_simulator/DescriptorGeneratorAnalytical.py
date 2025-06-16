@@ -11,6 +11,7 @@ from cudakernels.SingleKernelDebug import single_kernel_debug
 import sys
 import cudakernels.DerivativeKernels as cuda_dk
 import cudakernels.DerivativeKernels2 as cuda_dk2
+import cudakernels.SumKernels as cuda_sum
 import MathUtils as mu
 
 """
@@ -24,21 +25,103 @@ np.set_printoptions(suppress=True,precision=5,linewidth=150,threshold=sys.maxsiz
 
 class DescriptorGeneratorAnalytical(DescriptorGenerator):
     def generate_nep_descriptors_derivatives(self,central_pos,orientations,Nlist):
+        if(self.is_sync==1):
+            cp.cuda.Stream.null.synchronize()
+        t0 = time.time()
+
         self.calc_pts_dpts(central_pos,orientations,Nlist)
-        self.calculate_derivatives()
+
+        if(self.is_sync==1):
+            cp.cuda.Stream.null.synchronize()
+        t1 = time.time()
+
+        self.calculate_dcosdteta()
+       
+        if(self.is_sync==1):
+            cp.cuda.Stream.null.synchronize()
+        t2 = time.time()
+
+        self.kernel1()
+
+        if(self.is_sync==1):
+            cp.cuda.Stream.null.synchronize()
+        t3 = time.time()
+
+        self.kernel2()
+
+        if(self.is_sync==1):
+            cp.cuda.Stream.null.synchronize()
+        t4 = time.time()
+
+        self.kernel3()
+
+
+        if(self.is_sync==1):
+            cp.cuda.Stream.null.synchronize()
+        t5 = time.time()
+        
+        self.kernel4a()
+
+        # stream_1 = cp.cuda.Stream()
+        # stream_2 = cp.cuda.Stream()
+        stream_1 = None
+        stream_2 = None
+
+        if(self.is_sync==1):
+            cp.cuda.Stream.null.synchronize()
+        t6 = time.time()
+        self.kernel4b(stream_1)
+
+        if(self.is_sync==1):
+            cp.cuda.Stream.null.synchronize()
+        t7 = time.time()
+        self.kernel5(stream_2)
+
+        # stream_1.synchronize()
+        # stream_2.synchronize()    
+
+        if(self.is_sync==1):
+            cp.cuda.Stream.null.synchronize()
+        t8 = time.time()
+        # self.kernel6()
+        self._kernel6()
+
+        if(self.is_sync==1):
+            cp.cuda.Stream.null.synchronize()
+        t9 = time.time()
+
+        self._kernel7()
+
+        if(self.is_sync==1):
+            cp.cuda.Stream.null.synchronize()
+        t10 = time.time()
+
+        self.t_pts += t1-t0
+        self.t_dcos += t2-t1
+        self.t_k1 += t3-t2
+        self.t_k2 += t4-t3
+        self.t_k3 += t5-t4
+        self.t_k4a += t6-t5
+        self.t_k4b += t7-t6
+        self.t_k5 += t8-t7
+        self.t_k6 += t9-t8
+        self.t_k7 += t10-t9
+
 
         return self._dqdteta, self._dqdxyz, self._q, self.pp, self.N_pair
 
-    def generate_nep_descriptors_derivatives_debug(self,central_pos,orientations,Nlist):
-        """
-        Not to be used in production 
-        """
-        self.calculate_pts_debug(central_pos,orientations,Nlist)
-        self.calculate_derivatives()
-        self.calculate_dx_derivatives()
-        self.merge_derivatives()
-        self.kernel_test()
-        return self._dqdteta, self._dqdxyz, self._q, self.pp, self.N_pair
+
+    def set_timers(self):
+        self.t_pts = 0 
+        self.t_dcos = 0 
+        self.t_k1 = 0
+        self.t_k2 = 0
+        self.t_k3 = 0
+        self.t_k4a = 0
+        self.t_k4b = 0
+        self.t_k5 = 0
+        self.t_k6 = 0
+        self.t_k7 = 0
 
     def calc_pts_dpts(self,central_pos,orientations,Nlist):
         translate = central_pos[Nlist[:,1]]-central_pos[Nlist[:,0]]
@@ -95,14 +178,6 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
         )
 
 
-    def calculate_derivatives(self):
-        self.calculate_dcosdteta()    
-        self.rest()
-        
-        # self.calculate_T()
-        # self.calculate_dgdr()
-        # self.calculate_dqang_dteta()
-
 
     def calculate_dcosdteta(self):
 
@@ -139,7 +214,7 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
         )
 
 
-    def rest(self):
+    def kernel1(self):
         self._dgdr = cp.empty((self.N_pair,self.nrad + 1,self.Nd),dtype=cp.float32) # (N_pair,6,3)
         self._drdp = cp.empty((self.N_pair,self.Nd,3),dtype=cp.float32) # (N_pair,6,3)
         self._grad = cp.empty((self.N_pair,self.nrad + 1,self.Nd),dtype=cp.float32) # (N_pair,6,3)
@@ -164,6 +239,8 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
             )
         )
 
+    def kernel2(self):
+
         self._dgdteta = cp.empty((self.N_pair,self.nrad + 1,self.Nd, 6),dtype=cp.float32) # (N_pair,6,3)
         self._dgdxyz = cp.empty((self.N_pair,self.nrad + 1,self.Nd, 3),dtype=cp.float32) # (N_pair,6,3)
         n_chebysev = self.nrad + 1
@@ -186,6 +263,8 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
             )
         )
 
+    def kernel3(self):    
+
         self._dlegdcos = self._dlegdcos.reshape(self.N_pair, self.lmax, self.Nd * self.Nd) 
         self._dcosdteta = self._dcosdteta.reshape(self.N_pair, self.Nd * self.Nd, 6)  #
         self._dcosdxyz = self._dcosdxyz.reshape(self.N_pair,144,3)
@@ -193,8 +272,10 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
         self._dlegdteta = self._dlegdcos[:,:,:,cp.newaxis] * self._dcosdteta[:,cp.newaxis,:,:]  # shape (N_pair, lmax, Nd, Nd)
         self._dlegdxyz = self._dlegdcos[:,:,:,cp.newaxis] * self._dcosdxyz[:,cp.newaxis,:,:]  # shape (N_pair, lmax, Nd, Nd)
 
+    def kernel4a(self):             
 
-        out = cp.empty((self.N_pair, (self.nang+1) * self.lmax, 144, 6), dtype=cp.float32)
+
+        self.out = cp.empty((self.N_pair, (self.nang+1) * self.lmax, 144, 6), dtype=cp.float32)
         self.out_xyz = cp.empty((self.N_pair, (self.nang+1) * self.lmax, 144, 3), dtype=cp.float32)
         self._gang = cp.empty((self.N_pair, (self.nang+1) * self.lmax, 144), dtype=cp.float32)
 
@@ -204,27 +285,57 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
         self._dgdtetaforang = cp.ascontiguousarray(self._dgdtetaforang)
         self._dgdxyzforang = self._dgdxyz[:,:self.nang+1]
         self._dgdxyzforang = cp.ascontiguousarray(self._dgdxyzforang)
-        blocks = (self.N_pair*(self.nang+1)*self.lmax,)
-        threads_per_block = (self.Nd*self.Nd*6,)
 
-        cuda_dk2.dqang_dteta_kernel(
+        self.cp_N_pair = cp.int32(self.N_pair)
+        self.cp_nangp1 = cp.int32(self.nang + 1)
+        self.cp_lmax = cp.int32(self.lmax)
+        self.cp_Nd = cp.int32(self.Nd)
+        self.cp_nradp1 = cp.int32(self.nrad + 1)
+
+
+    def kernel4b(self,stream):
+        if stream == None:
+            blocks = (self.N_pair*(self.nang+1)*self.lmax,)
+            threads_per_block = (self.Nd*self.Nd*6,)
+
+            cuda_dk2.dqang_dteta_kernel(
             blocks, 
             threads_per_block,
             (self._gradforang, 
             self._leg, 
             self._dlegdteta, 
             self._dgdtetaforang,
-            out, 
-            cp.int32(self.N_pair),
-            cp.int32(self.nang + 1), 
-            cp.int32(self.lmax),
-            cp.int32(self.Nd)
+            self.out, 
+            self.cp_N_pair,
+            self.cp_nangp1, 
+            self.cp_lmax,
+            self.cp_Nd
             ))
+        else:
+            with stream:     
+                blocks = (self.N_pair*(self.nang+1)*self.lmax,)
+                threads_per_block = (self.Nd*self.Nd*6,)
+
+                cuda_dk2.dqang_dteta_kernel(
+                blocks, 
+                threads_per_block,
+                (self._gradforang, 
+                self._leg, 
+                self._dlegdteta, 
+                self._dgdtetaforang,
+                self.out, 
+                self.cp_N_pair,
+                self.cp_nangp1, 
+                self.cp_lmax,
+                self.cp_Nd
+                ))
+
+    def kernel5(self,stream):  
+        if(stream == None):  
+            blocks = (self.N_pair*(self.nang+1)*self.lmax,)
+            threads_per_block = (self.Nd*self.Nd*3,)
         
-        blocks = (self.N_pair*(self.nang+1)*self.lmax,)
-        threads_per_block = (self.Nd*self.Nd*3,)
-        
-        cuda_dk2.dqang_dxyz_kernel(
+            cuda_dk2.dqang_dxyz_kernel(
             blocks, 
             threads_per_block,
             (self._gradforang, 
@@ -233,21 +344,106 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
             self._dgdxyzforang,
             self.out_xyz, 
             self._gang,
-            cp.int32(self.N_pair),
-            cp.int32(self.nang + 1), 
-            cp.int32(self.lmax),
-            cp.int32(self.Nd)
+            self.cp_N_pair,
+            self.cp_nangp1, 
+            self.cp_lmax,
+            self.cp_Nd
             ))
-        
+        else:    
+            with stream:
+                blocks = (self.N_pair*(self.nang+1)*self.lmax,)
+                threads_per_block = (self.Nd*self.Nd*3,)
+            
+                cuda_dk2.dqang_dxyz_kernel(
+                blocks, 
+                threads_per_block,
+                (self._gradforang, 
+                self._leg, 
+                self._dlegdxyz, 
+                self._dgdxyzforang,
+                self.out_xyz, 
+                self._gang,
+                self.cp_N_pair,
+                self.cp_nangp1, 
+                self.cp_lmax,
+                self.cp_Nd
+                ))
+
+    def kernel6(self):    
         self._q_rad = cp.sum(self._grad,axis=-1)
         self._q_ang = cp.sum(self._gang,axis=-1)
         
         self._dqraddteta = cp.sum(self._dgdteta,axis=-2)
         self._dqraddxyz = cp.sum(self._dgdxyz,axis=-2)
 
-        self._dqangdteta = cp.sum(out,axis=-2)
-        self._dqangdxyz = cp.sum(self.out_xyz,axis=-2)
+        # self._dqangdteta = cp.sum(self.out,axis=-2)
+        # self._dqangdxyz = cp.sum(self.out_xyz,axis=-2)
 
+        tmp = self.out.transpose(0,1,3,2)   # shape (6000,36,6,144)
+        tmp2 = self.out_xyz.transpose(0,1,3,2)   # shape (6000,36,6,144)
+        self._dqangdteta = cp.sum(tmp, axis=-1)
+        self._dqangdxyz = cp.sum(tmp2, axis=-1)
+
+        self._dqdteta = cp.concatenate((self._dqraddteta,self._dqangdteta),axis=1)
+        self._dqdxyz = cp.concatenate((self._dqraddxyz,self._dqangdxyz),axis=1)
+        self._q = cp.concatenate((self._q_rad,self._q_ang),axis=1)
+
+
+
+    def _kernel6(self):
+
+        nradp1 = self.nrad + 1
+        J2 = self.lmax*(self.nang + 1 ) 
+        J1 = nradp1
+        sizes = [
+                self.N_pair*nradp1,
+                self.N_pair*J2,
+                self.N_pair*J1*3,
+                self.N_pair*J1*6,
+                self.N_pair*J2*3,
+                self.N_pair*J2*6,
+            ]
+        
+        total_out = sum(sizes)
+
+        threads_per_block = 256
+        blocks = (total_out + threads_per_block - 1) // threads_per_block
+
+        self._q_rad = cp.empty((self.N_pair, J1), dtype=cp.float32)
+        self._q_ang = cp.empty((self.N_pair, J2), dtype=cp.float32)
+        self._dqraddteta = cp.empty((self.N_pair, J1, 6), dtype=cp.float32)
+        self._dqraddxyz = cp.empty((self.N_pair, J1, 3), dtype=cp.float32)
+        self._dqangdteta = cp.empty((self.N_pair, J2, 6), dtype=cp.float32)
+        self._dqangdxyz = cp.empty((self.N_pair, J2, 3), dtype=cp.float32)
+
+
+
+        cuda_sum.sum_kernel(    
+                (blocks,),
+                (threads_per_block,),
+            (
+                self._grad,
+                self._q_rad,
+                self._gang,
+                self._q_ang,
+                self._dgdteta,
+                self._dqraddteta,
+                self._dgdxyz,
+                self._dqraddxyz,
+                self.out,
+                self._dqangdteta,
+                self.out_xyz,
+                self._dqangdxyz,
+                self.cp_N_pair,
+                self.cp_lmax,
+                self.cp_nradp1, 
+                self.cp_nangp1, 
+                self.cp_Nd
+            )
+            )
+        
+    def _kernel7(self):
+        
         self._dqdteta = cp.concatenate((self._dqraddteta,self._dqangdteta),axis=1)
         self._dqdxyz = cp.concatenate((self._dqraddxyz,self._dqangdxyz),axis=1)
         self._q = cp.concatenate((self._q_rad,self._q_ang),axis=1)
@@ -258,6 +454,19 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
 
 
 #################### DEBUG - CHECK MATH ETC ##############3
+    def generate_nep_descriptors_derivatives_debug(self,central_pos,orientations,Nlist):
+        """
+        Not to be used in production 
+        """
+        self.calculate_pts_debug(central_pos,orientations,Nlist)
+        self.calculate_derivatives()
+        self.calculate_dx_derivatives()
+        self.merge_derivatives()
+        self.kernel_test()
+        return self._dqdteta, self._dqdxyz, self._q, self.pp, self.N_pair
+
+
+
 
     def kernel_test(self):
         for i in range(6):

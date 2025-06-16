@@ -16,7 +16,7 @@ class DescriptorGenerator():
     at each times step of the simulation.      
     """
 
-    def set_timers(self):
+    def set_timers_num(self):
         self.t_pos_to_pts = 0
         self.t_dx = 0 
         self.t_pts_to_nep = 0
@@ -31,6 +31,8 @@ class DescriptorGenerator():
 
     def setDevice(self,gpu_id):
         self.set_timers()
+        self.set_timers_num()
+
         self.gpu_id = gpu_id
         self.device = cp.cuda.Device(gpu_id)
 

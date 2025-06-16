@@ -216,7 +216,7 @@ class Sim():
         self._t_nlist = 0
 
     def run(self,Nsteps):
-        self.is_sync = 0
+        self.is_sync = 1
         self.descriptor_generator.setSync(self.is_sync)
         self.evaluator.setSync(self.is_sync)
         self.set_timers()
@@ -245,17 +245,23 @@ class Sim():
             # self.step()
             self.step_analytical()
 
-        # print('Timers:')
-        # print('t_nlist : %.2f'%(self.t_nlist))
-        # print('t_gen : %.2f'%(self.t_gen))
-        # print('t_eval : %.2f'%(self.t_eval))
-        # print('t_s1 : %.2f'%(self.t_s1))
-        # print('t_s2 : %.2f'%(self.t_s2))    
+        print('Timers:')
+        print('t_nlist : %.2f'%(self.t_nlist))
+        print('t_gen : %.2f'%(self._t_gen))
+        print('t_eval : %.2f'%(self._t_eval))
+        print('t_s1 : %.2f'%(self._t_s1))
+        print('t_s2 : %.2f'%(self._t_s2))    
 
-        # print('Descriptor Generator Timers:')
-        # print('t_pos_to_pts : %.2f'%(self.descriptor_generator.t_pos_to_pts))
-        # print('t_apply_dx_dteta : %.2f'%(self.descriptor_generator.t_dx))
-        # print('t_pts_to_nep : %.2f'%(self.descriptor_generator.t_pts_to_nep))
+        print('Descriptor Generator Timers:')
+        print('t_pts : %.2f'%(self.descriptor_generator.t_pts))
+        print('t_dcos : %.2f'%(self.descriptor_generator.t_dcos))
+        print('t_k1 : %.2f'%(self.descriptor_generator.t_k1))
+        print('t_k2 : %.2f'%(self.descriptor_generator.t_k2))
+        print('t_k3 : %.2f'%(self.descriptor_generator.t_k3))
+        print('t_k4a : %.2f'%(self.descriptor_generator.t_k4a))
+        print('t_k4b : %.2f'%(self.descriptor_generator.t_k4b))
+        print('t_k5 : %.2f'%(self.descriptor_generator.t_k5))
+        print('t_k6 : %.2f'%(self.descriptor_generator.t_k6))
 
         # print('NEP timers')
         # print('t_nep1 : %.2f'%(self.descriptor_generator.t_nep1))
@@ -267,8 +273,8 @@ class Sim():
         print('Done')        
 
     def step_analytical(self):
-        # g_nep, pp, Npair = self.descriptor_generator.generate_nep_descriptors(self.central_pos,self.orientations,self.Nlist)
-        # self.forces, self.torks = self.evaluator.evaluate_interactions(g_nep,pp,Npair)  
+        g_nep, pp, Npair = self.descriptor_generator.generate_nep_descriptors(self.central_pos,self.orientations,self.Nlist)
+        self.forces, self.torks = self.evaluator.evaluate_interactions(g_nep,pp,Npair)  
         
         if(self.is_sync==1):
                 cp.cuda.Stream.null.synchronize()

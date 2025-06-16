@@ -177,7 +177,7 @@ class ForceEvaluator():
             # self.force_analytical[:,i] = cp.sum(self.dudq * dqdxyz[i][:,:], axis=1) * (-en_range)
             self.force_analytical[:,i] = cp.sum(self.dudq * dqdxyz[:,:,i], axis=1) * (-en_range)
 
-        # self.test_comparison()
+        self.test_comparison()
         self.net_interactions(pp)
         # self.test_net()
         return  self._forces, self._torks 
