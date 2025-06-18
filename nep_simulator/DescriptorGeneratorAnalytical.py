@@ -12,6 +12,7 @@ import sys
 import cudakernels.DerivativeKernels as cuda_dk
 import cudakernels.DerivativeKernels2 as cuda_dk2
 import cudakernels.SumKernels as cuda_sum
+import cudakernels.DangDtetaKernel as cuda_opt
 import MathUtils as mu
 
 """
@@ -71,6 +72,7 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
             cp.cuda.Stream.null.synchronize()
         t6 = time.time()
         self.kernel4b(stream_1)
+        # self._kernel4b()
 
         if(self.is_sync==1):
             cp.cuda.Stream.null.synchronize()
@@ -276,6 +278,7 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
 
 
         self.out = cp.empty((self.N_pair, (self.nang+1) * self.lmax, 144, 6), dtype=cp.float32)
+        self.out_deb = cp.empty((self.N_pair, (self.nang+1) * self.lmax, 144, 6), dtype=cp.float32)
         self.out_xyz = cp.empty((self.N_pair, (self.nang+1) * self.lmax, 144, 3), dtype=cp.float32)
         self._gang = cp.empty((self.N_pair, (self.nang+1) * self.lmax, 144), dtype=cp.float32)
 
@@ -293,7 +296,51 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
         self.cp_nradp1 = cp.int32(self.nrad + 1)
 
 
+    def _kernel4b(self):
+        TPB  = (12, 12, 1)
+        grid = (self.N_pair, self.nang+1, self.lmax)
+        shmem= (12 + 12*6) * 4     # bytes
+        cuda_opt.k1(grid, TPB, 
+            (
+            self._gradforang, 
+            self._leg, 
+            self._dlegdteta, 
+            self._dgdtetaforang,
+            self.out_deb,
+            self.cp_N_pair
+            )
+            , shared_mem=shmem)
+
+        # blocks = (self.N_pair*(self.nang+1)*self.lmax,)
+        # threads_per_block = (self.Nd*self.Nd*6,)
+
+        # cuda_opt.gemini_kernel(
+        #     blocks, 
+        #     threads_per_block,
+        #     (self._gradforang, 
+        #     self._leg, 
+        #     self._dlegdteta, 
+        #     self._dgdtetaforang,
+        #     self.out, 
+        #     self.cp_N_pair,
+        #     self.cp_nangp1, 
+        #     self.cp_lmax,
+        #     self.cp_Nd
+        #     ))    
+        
+        # print(self.out[0,0])
+        # print(self.out_deb[0,0])
+
+        # exit()
+
+
+
     def kernel4b(self,stream):
+
+
+
+
+
         if stream == None:
             blocks = (self.N_pair*(self.nang+1)*self.lmax,)
             threads_per_block = (self.Nd*self.Nd*6,)
@@ -329,6 +376,15 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
                 self.cp_lmax,
                 self.cp_Nd
                 ))
+        # np.save('leg.npy',cp.asnumpy(self._leg))
+        # np.save('grad.npy',cp.asnumpy(self._gradforang))
+        # np.save('dleg.npy',cp.asnumpy(self._dlegdteta))
+        # np.save('dg.npy',cp.asnumpy(self._dgdtetaforang))
+
+        # np.save('out.npy',cp.asnumpy(self.out))
+
+        # print(self.out[0,0,:,4].reshape(12,12))
+        # exit()        
 
     def kernel5(self,stream):  
         if(stream == None):  
@@ -349,6 +405,15 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
             self.cp_lmax,
             self.cp_Nd
             ))
+
+            np.save('dlegxyz.npy',cp.asnumpy(self._dlegdxyz))
+            np.save('dgxyz.npy',cp.asnumpy(self._dgdxyzforang))
+            np.save('outxyz.npy',cp.asnumpy(self.out_xyz))
+            np.save('gang.npy',cp.asnumpy(self._gang))
+            exit()
+
+
+
         else:    
             with stream:
                 blocks = (self.N_pair*(self.nang+1)*self.lmax,)
@@ -368,6 +433,12 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
                 self.cp_lmax,
                 self.cp_Nd
                 ))
+
+
+        print(self.out_xyz[0,0,:,0].reshape(12,12))
+        # print(self._dlegdteta[0,0,:,0].reshape(12,12))
+        # print(self._leg[0,0,:].reshape(12,12))
+        exit()         
 
     def kernel6(self):    
         self._q_rad = cp.sum(self._grad,axis=-1)

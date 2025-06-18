@@ -216,7 +216,7 @@ class Sim():
         self._t_nlist = 0
 
     def run(self,Nsteps):
-        self.is_sync = 1
+        self.is_sync = 0
         self.descriptor_generator.setSync(self.is_sync)
         self.evaluator.setSync(self.is_sync)
         self.set_timers()
