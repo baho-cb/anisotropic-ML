@@ -158,7 +158,7 @@ class ForceEvaluator():
 
     ######## FUNCTIONS NEEDED FOR ANALYTICAL DERICATIVE ######## 
 
-    def evaluate_interactions_analytical(self,_q,pp,N_pair,dqall_dtetalist, dqdxyz):
+    def evaluate_interactions_analytical(self,_q,pp,N_pair,dq):
         self.evaluate_gradients_analytical(_q)
 
         self.tork1_analytical = cp.zeros((N_pair,3),dtype=cp.float32)
@@ -166,16 +166,26 @@ class ForceEvaluator():
         self.force_analytical = cp.zeros((N_pair,3),dtype=cp.float32)
         en_range = self.en_max - self.en_min
 
-        for i in range(3):
-            # self.tork1_analytical[:,i] = cp.sum(self.dudq * dqall_dtetalist[i][:,:], axis=1) * (-en_range)
-            self.tork1_analytical[:,i] = cp.sum(self.dudq * dqall_dtetalist[:,:,i], axis=1) * (-en_range)
-        for i in range(3):
-            # self.tork2_analytical[:,i] = cp.sum(self.dudq * dqall_dtetalist[i+3][:,:], axis=1) * (-en_range)
-            self.tork2_analytical[:,i] = cp.sum(self.dudq * dqall_dtetalist[:,:,i+3], axis=1) * (-en_range)
+        # for i in range(3):
+        #     # self.tork1_analytical[:,i] = cp.sum(self.dudq * dqall_dtetalist[i][:,:], axis=1) * (-en_range)
+        #     # self.tork1_analytical[:,i] = cp.sum(self.dudq * dqall_dtetalist[:,:,i], axis=1) * (-en_range)
+        #     self.tork1_analytical[:,i] = cp.sum(self.dudq * dqall_dtetalist[i,:,:], axis=1) * (-en_range)
+        # for i in range(3):
+        #     # self.tork2_analytical[:,i] = cp.sum(self.dudq * dqall_dtetalist[i+3][:,:], axis=1) * (-en_range)
+        #     self.tork2_analytical[:,i] = cp.sum(self.dudq * dqall_dtetalist[i+3,:,:], axis=1) * (-en_range)
+        #     # self.tork2_analytical[:,i] = cp.sum(self.dudq * dqall_dtetalist[:,:,i+3], axis=1) * (-en_range)
+
+        # for i in range(3):
+        #     # self.force_analytical[:,i] = cp.sum(self.dudq * dqdxyz[i][:,:], axis=1) * (-en_range)
+        #     self.force_analytical[:,i] = cp.sum(self.dudq * dqdxyz[i,:,:], axis=1) * (-en_range)
+        #     # self.force_analytical[:,i] = cp.sum(self.dudq * dqdxyz[:,:,i], axis=1) * (-en_range)
 
         for i in range(3):
-            # self.force_analytical[:,i] = cp.sum(self.dudq * dqdxyz[i][:,:], axis=1) * (-en_range)
-            self.force_analytical[:,i] = cp.sum(self.dudq * dqdxyz[:,:,i], axis=1) * (-en_range)
+            self.tork1_analytical[:,i] = cp.sum(self.dudq * dq[i], axis=1) * (-en_range)
+        for i in range(3,6):
+            self.tork2_analytical[:,i-3] = cp.sum(self.dudq * dq[i], axis=1) * (-en_range)
+        for i in range(6,9):
+            self.force_analytical[:,i-6] = cp.sum(self.dudq * dq[i], axis=1) * (-en_range)
 
         # self.test_comparison()
         self.net_interactions(pp)

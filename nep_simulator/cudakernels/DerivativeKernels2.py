@@ -151,6 +151,84 @@ void calculate_dgdteta(
                              }                           
 ''', 'calculate_dgdteta')
 
+dgdteta_kernel2 = cp.RawKernel(r'''
+extern "C" __global__
+void calculate_dgdteta(    
+    const float* __restrict__ dgdr, // [Np, n_cheb, Nd]
+    const float* __restrict__ drdp, // [Np, Nd, 3]   
+    const float* __restrict__ dpdteta, // [Np, Nd, 3]   
+    float* __restrict__ dgdteta, // [6, Np, n_cheb, Nd] 
+    float* __restrict__ dgdxyz, // [3, Np, n_cheb, Nd] 
+    const int n_cheb,                       
+    const int Np,
+    const int Nd // 12 for cube, 8 for tetrahedron
+    )                               
+
+                               
+{
+    int blx = blockIdx.x; // 0 to Np*n_cheb  
+    int thx = threadIdx.x; // 0 to Nd
+    int ndh = Nd/2; // half of Nd              
+                               
+    if (blx >= (Np*n_cheb) || thx >= Nd) return;
+                           
+                              
+                              
+    //int index_dpdteta = (blx%Np)*Nd*3 + thx*3; 
+    int index_dpdteta = (blx/n_cheb)*Nd*3 + thx*3; 
+    int index_dgdr = blx*Nd + thx;    
+    float v_dgdr = dgdr[index_dgdr];                                                                           
+
+    float dpdtetax = dpdteta[index_dpdteta + 0];
+    float dpdtetay = dpdteta[index_dpdteta + 1];
+    float dpdtetaz = dpdteta[index_dpdteta + 2];
+                              
+    float drdp_x = drdp[index_dpdteta + 0];
+    float drdp_y = drdp[index_dpdteta + 1];
+    float drdp_z = drdp[index_dpdteta + 2];
+
+    float inner_dx1 = -dpdtetaz*drdp_y + dpdtetay*drdp_z;
+    float inner_dy1 = dpdtetaz*drdp_x - dpdtetax*drdp_z;
+    float inner_dz1 = -dpdtetay*drdp_x + dpdtetax*drdp_y;     
+
+    float inner_dx2 = -dpdtetaz*drdp_y + dpdtetay*drdp_z;
+    float inner_dy2 = dpdtetaz*drdp_x - dpdtetax*drdp_z;
+    float inner_dz2 = -dpdtetay*drdp_x + dpdtetax*drdp_y;                                                     
+                                                                                                        
+    float dpdxyz = 0.5f; 
+                              
+    if(thx >= ndh)
+    {
+       inner_dx1 = 0.0f;
+       inner_dy1 = 0.0f;
+       inner_dz1 = 0.0f;  
+       dpdxyz = -0.5f;                                            
+    }                   
+
+    if(thx < ndh)
+    {                                                           
+        inner_dx2 = 0.0f;
+        inner_dy2 = 0.0f;
+        inner_dz2 = 0.0f;
+    }
+    int index_target = blx*Nd*6 + thx*6;  
+    int index_dgdxyz = blx*Nd*3 + thx*3;  
+                              
+    dgdxyz[blx*Nd + thx] = v_dgdr * drdp_x * dpdxyz;                         
+    dgdxyz[blx*Nd + thx + Np*n_cheb*Nd] = v_dgdr * drdp_y * dpdxyz;                         
+    dgdxyz[blx*Nd + thx + Np*n_cheb*Nd*2] = v_dgdr * drdp_z * dpdxyz;                         
+                              
+    dgdteta[blx*Nd + thx] = v_dgdr * inner_dx1;                          
+    dgdteta[blx*Nd + thx + Np*n_cheb*Nd] = v_dgdr * inner_dy1;                          
+    dgdteta[blx*Nd + thx + Np*n_cheb*Nd*2] = v_dgdr * inner_dz1;                          
+    dgdteta[blx*Nd + thx + Np*n_cheb*Nd*3] = v_dgdr * inner_dx2;                          
+    dgdteta[blx*Nd + thx + Np*n_cheb*Nd*4] = v_dgdr * inner_dy2;                          
+    dgdteta[blx*Nd + thx + Np*n_cheb*Nd*5] = v_dgdr * inner_dz2;                          
+
+
+                             }                           
+''', 'calculate_dgdteta')
+
 
 
 dqang_dteta_kernel = cp.RawKernel(r'''

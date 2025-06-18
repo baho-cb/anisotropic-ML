@@ -216,7 +216,7 @@ class Sim():
         self._t_nlist = 0
 
     def run(self,Nsteps):
-        self.is_sync = 0
+        self.is_sync = 1
         self.descriptor_generator.setSync(self.is_sync)
         self.evaluator.setSync(self.is_sync)
         self.set_timers()
@@ -258,10 +258,11 @@ class Sim():
         print('t_k1 : %.2f'%(self.descriptor_generator.t_k1))
         print('t_k2 : %.2f'%(self.descriptor_generator.t_k2))
         print('t_k3 : %.2f'%(self.descriptor_generator.t_k3))
-        print('t_k4a : %.2f'%(self.descriptor_generator.t_k4a))
-        print('t_k45 : %.2f'%(self.descriptor_generator.t_k45))
-        # print('t_k5 : %.2f'%(self.descriptor_generator.t_k5))
+        print('t_k4 : %.2f'%(self.descriptor_generator.t_k4))
+        print('t_k5 : %.2f'%(self.descriptor_generator.t_k5))
         print('t_k6 : %.2f'%(self.descriptor_generator.t_k6))
+        print('t_k7 : %.2f'%(self.descriptor_generator.t_k7))
+        print('t_k8 : %.2f'%(self.descriptor_generator.t_k8))
 
         # print('NEP timers')
         # print('t_nep1 : %.2f'%(self.descriptor_generator.t_nep1))
@@ -280,13 +281,13 @@ class Sim():
                 cp.cuda.Stream.null.synchronize()
         t0 = time.time()   
 
-        _dqdteta, _dqdxyz, _q, pp, Npair = self.descriptor_generator.generate_nep_descriptors_derivatives(self.central_pos,self.orientations,self.Nlist)
+        dq, _q, pp, Npair = self.descriptor_generator.generate_nep_descriptors_derivatives(self.central_pos,self.orientations,self.Nlist)
 
         if(self.is_sync==1):
                 cp.cuda.Stream.null.synchronize()
         t1 = time.time()   
 
-        self.forces, self.torks = self.evaluator.evaluate_interactions_analytical(_q,pp,Npair,_dqdteta,_dqdxyz)
+        self.forces, self.torks = self.evaluator.evaluate_interactions_analytical(_q,pp,Npair,dq)
    
         if(self.is_sync==1):
                 cp.cuda.Stream.null.synchronize()
