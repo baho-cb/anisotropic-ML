@@ -259,8 +259,8 @@ class Sim():
         print('t_k2 : %.2f'%(self.descriptor_generator.t_k2))
         print('t_k3 : %.2f'%(self.descriptor_generator.t_k3))
         print('t_k4a : %.2f'%(self.descriptor_generator.t_k4a))
-        print('t_k4b : %.2f'%(self.descriptor_generator.t_k4b))
-        print('t_k5 : %.2f'%(self.descriptor_generator.t_k5))
+        print('t_k45 : %.2f'%(self.descriptor_generator.t_k45))
+        # print('t_k5 : %.2f'%(self.descriptor_generator.t_k5))
         print('t_k6 : %.2f'%(self.descriptor_generator.t_k6))
 
         # print('NEP timers')
@@ -273,8 +273,8 @@ class Sim():
         print('Done')        
 
     def step_analytical(self):
-        g_nep, pp, Npair = self.descriptor_generator.generate_nep_descriptors(self.central_pos,self.orientations,self.Nlist)
-        self.forces, self.torks = self.evaluator.evaluate_interactions(g_nep,pp,Npair)  
+        # g_nep, pp, Npair = self.descriptor_generator.generate_nep_descriptors(self.central_pos,self.orientations,self.Nlist)
+        # self.forces, self.torks = self.evaluator.evaluate_interactions(g_nep,pp,Npair)  
         
         if(self.is_sync==1):
                 cp.cuda.Stream.null.synchronize()

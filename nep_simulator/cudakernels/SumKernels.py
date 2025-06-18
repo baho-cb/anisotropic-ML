@@ -119,3 +119,262 @@ sum_kernel = cp.RawKernel(r'''
         out6[idx] = s;
     }}
                           ''', 'sum_axis2')
+
+
+sum_kernel2 = cp.RawKernel(r'''
+    extern "C" __global__
+    void sum_axis2(
+        const float* v1, float* out1,
+        const float* v2, float* out2,
+        const float* v3, float* out3,
+        const float* v4, float* out4,
+        const float* v5, float* out5,
+        const float* v6, float* out6, 
+        const float* v7, float* out7, 
+        const float* v8, float* out8, 
+        const float* v9, float* out9, 
+        const float* v10, float* out10, 
+        const int Np, 
+        const int nang,
+        const int Nupper                                                                
+                          
+    ) {{
+        int blx = blockIdx.x;
+        int bly = blockIdx.y;
+        int thx = threadIdx.x;                                      
+        int tid = blx * blockDim.x + thx;
+        __shared__ float sum;
+
+        if (thx == 0)
+        {
+        sum = 0.0f;
+        }
+    
+        __syncthreads();
+
+        if(bly==0)
+        {
+            atomicAdd(&sum, v1[tid]);
+            __syncthreads();  
+            out1[blx] = sum;
+            return;             
+        }         
+        if(bly==1)
+        {
+            atomicAdd(&sum, v2[tid]);
+            __syncthreads();  
+            out2[blx] = sum;
+            return;             
+        }         
+        if(bly==2)
+        {
+            atomicAdd(&sum, v3[tid]);
+            __syncthreads();  
+            out3[blx] = sum;
+            return;             
+        }         
+        if(bly==3)
+        {
+            atomicAdd(&sum, v4[tid]);
+            __syncthreads();  
+            out4[blx] = sum;
+            return;             
+        }         
+        if(bly==4)
+        {
+            atomicAdd(&sum, v5[tid]);
+            __syncthreads();  
+            out5[blx] = sum;
+            return;             
+        }         
+        if(bly==5)
+        {
+            atomicAdd(&sum, v6[tid]);
+            __syncthreads();  
+            out6[blx] = sum;
+            return;             
+        }         
+        if(bly==6)
+        {
+            atomicAdd(&sum, v7[tid]);
+            __syncthreads();  
+            out7[blx] = sum;
+            return;             
+        }         
+        if(bly==7)
+        {
+            atomicAdd(&sum, v8[tid]);
+            __syncthreads();  
+            out8[blx] = sum;
+            return;             
+        }         
+        if(bly==8)
+        {
+            atomicAdd(&sum, v9[tid]);
+            __syncthreads();  
+            out9[blx] = sum;
+            return;             
+        }         
+        if(bly==9)
+        {
+            atomicAdd(&sum, v10[tid]);
+            __syncthreads();  
+            out10[blx] = sum;
+            return;             
+        }         
+                                                                         
+                                  
+
+    }}
+                          ''', 'sum_axis2')
+
+
+sum_kernel3 = cp.RawKernel(r'''
+    extern "C" __global__
+    void sum_axis2(
+        const float* v1, float* out1,
+        const float* v2, float* out2,
+        const float* v3, float* out3,
+        const float* v4, float* out4,
+        const float* v5, float* out5,
+        const float* v6, float* out6, 
+        const float* v7, float* out7, 
+        const float* v8, float* out8, 
+        const float* v9, float* out9, 
+        const float* v10, float* out10, 
+        const int Np, 
+        const int nang,
+        const int Nupper                                                                
+                          
+    ) {{
+        int blx = blockIdx.x;
+        int thx = threadIdx.x;                                      
+        int tid = blx * blockDim.x + thx;
+
+        int total_out = Np*nang*10; 
+        if(tid >= total_out){return;}
+
+        int per_array_out = Np*nang;
+
+        // in [Np,nang,Nupper] -> out [Np,nang]
+        if(tid < per_array_out*1)
+        {  
+            int idx = tid - per_array_out*0;
+            int i = idx / nang;
+            int j = idx % nang;
+            float s = 0;
+            int base = (i*nang + j)*Nupper;
+            for (int l = 0; l < Nupper; ++l) s += v1[base + l];
+            out1[idx] = s;
+            return;        
+        }
+        if(tid < per_array_out*2)
+        {  
+            int idx = tid - per_array_out*1;
+            int i = idx / nang;
+            int j = idx % nang;
+            float s = 0;
+            int base = (i*nang + j)*Nupper;
+            for (int l = 0; l < Nupper; ++l) s += v2[base + l];
+            out2[idx] = s;
+            return;        
+        }
+        if(tid < per_array_out*3)
+        {  
+            int idx = tid - per_array_out*2;
+            int i = idx / nang;
+            int j = idx % nang;
+            float s = 0;
+            int base = (i*nang + j)*Nupper;
+            for (int l = 0; l < Nupper; ++l) s += v3[base + l];
+            out3[idx] = s;
+            return;        
+        }
+        if(tid < per_array_out*4)
+        {  
+            int idx = tid - per_array_out*3;
+            int i = idx / nang;
+            int j = idx % nang;
+            float s = 0;
+            int base = (i*nang + j)*Nupper;
+            for (int l = 0; l < Nupper; ++l) s += v4[base + l];
+            out4[idx] = s;
+            return;        
+        }
+        if(tid < per_array_out*5)
+        {  
+            int idx = tid - per_array_out*4;
+            int i = idx / nang;
+            int j = idx % nang;
+            float s = 0;
+            int base = (i*nang + j)*Nupper;
+            for (int l = 0; l < Nupper; ++l) s += v5[base + l];
+            out5[idx] = s;
+            return;        
+        }
+        if(tid < per_array_out*6)
+        {  
+            int idx = tid - per_array_out*5;
+            int i = idx / nang;
+            int j = idx % nang;
+            float s = 0;
+            int base = (i*nang + j)*Nupper;
+            for (int l = 0; l < Nupper; ++l) s += v6[base + l];
+            out6[idx] = s;
+            return;        
+        }
+        if(tid < per_array_out*7)
+        {  
+            int idx = tid - per_array_out*6;
+            int i = idx / nang;
+            int j = idx % nang;
+            float s = 0;
+            int base = (i*nang + j)*Nupper;
+            for (int l = 0; l < Nupper; ++l) s += v7[base + l];
+            out7[idx] = s;
+            return;        
+        }
+        if(tid < per_array_out*8)
+        {  
+            int idx = tid - per_array_out*7;
+            int i = idx / nang;
+            int j = idx % nang;
+            float s = 0;
+            int base = (i*nang + j)*Nupper;
+            for (int l = 0; l < Nupper; ++l) s += v8[base + l];
+            out8[idx] = s;
+            return;        
+        }
+        if(tid < per_array_out*9)
+        {  
+            int idx = tid - per_array_out*8;
+            int i = idx / nang;
+            int j = idx % nang;
+            float s = 0;
+            int base = (i*nang + j)*Nupper;
+            for (int l = 0; l < Nupper; ++l) s += v9[base + l];
+            out9[idx] = s;
+            return;        
+        }
+        if(tid < per_array_out*10)
+        {  
+            int idx = tid - per_array_out*9;
+            int i = idx / nang;
+            int j = idx % nang;
+            float s = 0;
+            int base = (i*nang + j)*Nupper;
+            for (int l = 0; l < Nupper; ++l) s += v10[base + l];
+            out10[idx] = s;
+            return;        
+        }
+
+
+               
+
+
+
+                                              
+                                  
+
+    }}
+                          ''', 'sum_axis2')

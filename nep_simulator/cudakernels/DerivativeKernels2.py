@@ -224,34 +224,34 @@ extern "C" __global__
 void dqang_dteta_kernel(
     const float *__restrict__ g_rad, // [Np, nangp1, Nd]
     const float *__restrict__ leg, // [Np, lmax, Nd*Nd]
-    const float *__restrict__ dl1, // [Np, lmax, Nd*Nd, 6]
-    const float *__restrict__ dl2, // [Np, lmax, Nd*Nd, 6]
-    const float *__restrict__ dl3, // [Np, lmax, Nd*Nd, 6]
-    const float *__restrict__ dl4, // [Np, lmax, Nd*Nd, 6]
-    const float *__restrict__ dl5, // [Np, lmax, Nd*Nd, 6]
-    const float *__restrict__ dl6, // [Np, lmax, Nd*Nd, 6]
-    const float *__restrict__ dl7, // [Np, lmax, Nd*Nd, 6]
-    const float *__restrict__ dl8, // [Np, lmax, Nd*Nd, 6]
-    const float *__restrict__ dl9, // [Np, lmax, Nd*Nd, 6]
-    const float *__restrict__ dgdteta1, // [Np, nangp1, Nd, 6]
-    const float *__restrict__ dgdteta2, // [Np, nangp1, Nd, 6]
-    const float *__restrict__ dgdteta3, // [Np, nangp1, Nd, 6]
-    const float *__restrict__ dgdteta4, // [Np, nangp1, Nd, 6]
-    const float *__restrict__ dgdteta5, // [Np, nangp1, Nd, 6]
-    const float *__restrict__ dgdteta6, // [Np, nangp1, Nd, 6]
-    const float *__restrict__ dgdteta7, // [Np, nangp1, Nd, 6]
-    const float *__restrict__ dgdteta8, // [Np, nangp1, Nd, 6]
-    const float *__restrict__ dgdteta9, // [Np, nangp1, Nd, 6]
-    float       *__restrict__ out1, // [Np, nangp1*lmax, Nd*Nd, 6]
-    float       *__restrict__ out2, // [Np, nangp1*lmax, Nd*Nd, 6]
-    float       *__restrict__ out3, // [Np, nangp1*lmax, Nd*Nd, 6]
-    float       *__restrict__ out4, // [Np, nangp1*lmax, Nd*Nd, 6]
-    float       *__restrict__ out5, // [Np, nangp1*lmax, Nd*Nd, 6]
-    float       *__restrict__ out6, // [Np, nangp1*lmax, Nd*Nd, 6]
-    float       *__restrict__ out7, // [Np, nangp1*lmax, Nd*Nd, 6]
-    float       *__restrict__ out8, // [Np, nangp1*lmax, Nd*Nd, 6]
-    float       *__restrict__ out9, // [Np, nangp1*lmax, Nd*Nd, 6]
-    float       *__restrict__ out10, // [Np, nangp1*lmax, Nd*Nd, 6]
+    const float *__restrict__ dl1, // [Np, lmax, Nd*Nd]
+    const float *__restrict__ dl2, // [Np, lmax, Nd*Nd]
+    const float *__restrict__ dl3, // [Np, lmax, Nd*Nd]
+    const float *__restrict__ dl4, // [Np, lmax, Nd*Nd]
+    const float *__restrict__ dl5, // [Np, lmax, Nd*Nd]
+    const float *__restrict__ dl6, // [Np, lmax, Nd*Nd]
+    const float *__restrict__ dl7, // [Np, lmax, Nd*Nd]
+    const float *__restrict__ dl8, // [Np, lmax, Nd*Nd]
+    const float *__restrict__ dl9, // [Np, lmax, Nd*Nd]
+    const float *__restrict__ dgdteta1, // [Np, nangp1, Nd]
+    const float *__restrict__ dgdteta2, // [Np, nangp1, Nd]
+    const float *__restrict__ dgdteta3, // [Np, nangp1, Nd]
+    const float *__restrict__ dgdteta4, // [Np, nangp1, Nd]
+    const float *__restrict__ dgdteta5, // [Np, nangp1, Nd]
+    const float *__restrict__ dgdteta6, // [Np, nangp1, Nd]
+    const float *__restrict__ dgdteta7, // [Np, nangp1, Nd]
+    const float *__restrict__ dgdteta8, // [Np, nangp1, Nd]
+    const float *__restrict__ dgdteta9, // [Np, nangp1, Nd]
+    float       *__restrict__ out1, // [Np, nangp1*lmax, Nd*Nd]
+    float       *__restrict__ out2, // [Np, nangp1*lmax, Nd*Nd]
+    float       *__restrict__ out3, // [Np, nangp1*lmax, Nd*Nd]
+    float       *__restrict__ out4, // [Np, nangp1*lmax, Nd*Nd]
+    float       *__restrict__ out5, // [Np, nangp1*lmax, Nd*Nd]
+    float       *__restrict__ out6, // [Np, nangp1*lmax, Nd*Nd]
+    float       *__restrict__ out7, // [Np, nangp1*lmax, Nd*Nd]
+    float       *__restrict__ out8, // [Np, nangp1*lmax, Nd*Nd]
+    float       *__restrict__ out9, // [Np, nangp1*lmax, Nd*Nd]
+    float       *__restrict__ out10, // [Np, nangp1*lmax, Nd*Nd]
     const int Np,                       
     const int nangp1,
     const int lmax,
@@ -263,23 +263,123 @@ void dqang_dteta_kernel(
 
     int index_target = blx*Nd*Nd + thy*Nd + thx;
 
-    if(index_target > Np*nangp1*lmax*Nd*Nd) return;
+    if(index_target >= Np*nangp1*lmax*Nd*Nd) return;
+                                         
                                                                    
     int index_g_ik = (blx/lmax) * Nd + thx;
     int index_g_ij = (blx/lmax) * Nd + thy;
     int index_leg =  ((blx%lmax) + (blx/(lmax*nangp1))*lmax) * Nd * Nd + thy*Nd + thx;
                                    
+    float g_ij = g_rad[index_g_ij];                                     
+    float g_ik = g_rad[index_g_ik];                                    
+    float leg_var = leg[index_leg];
+                                         
 
-    out1[index_target] = g_rad[index_g_ij]*dgdteta1[index_g_ik]*leg[index_leg] + g_rad[index_g_ik]*dgdteta1[index_g_ij]*leg[index_leg] + g_rad[index_g_ij]*g_rad[index_g_ik]*dl1[index_leg];                                                                               
-    out2[index_target] = g_rad[index_g_ij]*dgdteta2[index_g_ik]*leg[index_leg] + g_rad[index_g_ik]*dgdteta2[index_g_ij]*leg[index_leg] + g_rad[index_g_ij]*g_rad[index_g_ik]*dl2[index_leg];                                                                              
-    out3[index_target] = g_rad[index_g_ij]*dgdteta3[index_g_ik]*leg[index_leg] + g_rad[index_g_ik]*dgdteta3[index_g_ij]*leg[index_leg] + g_rad[index_g_ij]*g_rad[index_g_ik]*dl3[index_leg];                                                                      
-    out4[index_target] = g_rad[index_g_ij]*dgdteta4[index_g_ik]*leg[index_leg] + g_rad[index_g_ik]*dgdteta4[index_g_ij]*leg[index_leg] + g_rad[index_g_ij]*g_rad[index_g_ik]*dl4[index_leg];                                                                            
-    out5[index_target] = g_rad[index_g_ij]*dgdteta5[index_g_ik]*leg[index_leg] + g_rad[index_g_ik]*dgdteta5[index_g_ij]*leg[index_leg] + g_rad[index_g_ij]*g_rad[index_g_ik]*dl5[index_leg];                                                                   
-    out6[index_target] = g_rad[index_g_ij]*dgdteta6[index_g_ik]*leg[index_leg] + g_rad[index_g_ik]*dgdteta6[index_g_ij]*leg[index_leg] + g_rad[index_g_ij]*g_rad[index_g_ik]*dl6[index_leg];                                                                        
-    out7[index_target] = g_rad[index_g_ij]*dgdteta7[index_g_ik]*leg[index_leg] + g_rad[index_g_ik]*dgdteta7[index_g_ij]*leg[index_leg] + g_rad[index_g_ij]*g_rad[index_g_ik]*dl7[index_leg];                                                                        
-    out8[index_target] = g_rad[index_g_ij]*dgdteta8[index_g_ik]*leg[index_leg] + g_rad[index_g_ik]*dgdteta8[index_g_ij]*leg[index_leg] + g_rad[index_g_ij]*g_rad[index_g_ik]*dl8[index_leg];                                                                        
-    out9[index_target] = g_rad[index_g_ij]*dgdteta9[index_g_ik]*leg[index_leg] + g_rad[index_g_ik]*dgdteta9[index_g_ij]*leg[index_leg] + g_rad[index_g_ij]*g_rad[index_g_ik]*dl9[index_leg];                                                                        
-    out10[index_target] = g_rad[index_g_ij]*g_rad[index_g_ik]*leg[index_leg];
+    //out1[index_target] = g_rad[index_g_ij]*dgdteta1[index_g_ik]*leg[index_leg] + g_rad[index_g_ik]*dgdteta1[index_g_ij]*leg[index_leg] + g_rad[index_g_ij]*g_rad[index_g_ik]*dl1[index_leg];                                                                               
+    //out2[index_target] = g_rad[index_g_ij]*dgdteta2[index_g_ik]*leg[index_leg] + g_rad[index_g_ik]*dgdteta2[index_g_ij]*leg[index_leg] + g_rad[index_g_ij]*g_rad[index_g_ik]*dl2[index_leg];                                                                              
+    //out3[index_target] = g_rad[index_g_ij]*dgdteta3[index_g_ik]*leg[index_leg] + g_rad[index_g_ik]*dgdteta3[index_g_ij]*leg[index_leg] + g_rad[index_g_ij]*g_rad[index_g_ik]*dl3[index_leg];                                                                      
+    //out4[index_target] = g_rad[index_g_ij]*dgdteta4[index_g_ik]*leg[index_leg] + g_rad[index_g_ik]*dgdteta4[index_g_ij]*leg[index_leg] + g_rad[index_g_ij]*g_rad[index_g_ik]*dl4[index_leg];                                                                            
+    //out5[index_target] = g_rad[index_g_ij]*dgdteta5[index_g_ik]*leg[index_leg] + g_rad[index_g_ik]*dgdteta5[index_g_ij]*leg[index_leg] + g_rad[index_g_ij]*g_rad[index_g_ik]*dl5[index_leg];                                                                   
+    //out6[index_target] = g_rad[index_g_ij]*dgdteta6[index_g_ik]*leg[index_leg] + g_rad[index_g_ik]*dgdteta6[index_g_ij]*leg[index_leg] + g_rad[index_g_ij]*g_rad[index_g_ik]*dl6[index_leg];                                                                        
+    //out7[index_target] = g_rad[index_g_ij]*dgdteta7[index_g_ik]*leg[index_leg] + g_rad[index_g_ik]*dgdteta7[index_g_ij]*leg[index_leg] + g_rad[index_g_ij]*g_rad[index_g_ik]*dl7[index_leg];                                                                        
+    //out8[index_target] = g_rad[index_g_ij]*dgdteta8[index_g_ik]*leg[index_leg] + g_rad[index_g_ik]*dgdteta8[index_g_ij]*leg[index_leg] + g_rad[index_g_ij]*g_rad[index_g_ik]*dl8[index_leg];                                                                        
+    //out9[index_target] = g_rad[index_g_ij]*dgdteta9[index_g_ik]*leg[index_leg] + g_rad[index_g_ik]*dgdteta9[index_g_ij]*leg[index_leg] + g_rad[index_g_ij]*g_rad[index_g_ik]*dl9[index_leg];                                                                        
+    //out10[index_target] = g_rad[index_g_ij]*g_rad[index_g_ik]*leg[index_leg];
+                                         
+
+    out1[index_target] = g_ij*dgdteta1[index_g_ik]*leg_var + g_ik*dgdteta1[index_g_ij]*leg_var + g_ij*g_ik*dl1[index_leg];                                                                               
+    out2[index_target] = g_ij*dgdteta2[index_g_ik]*leg_var + g_ik*dgdteta2[index_g_ij]*leg_var + g_ij*g_ik*dl2[index_leg];                                                                              
+    out3[index_target] = g_ij*dgdteta3[index_g_ik]*leg_var + g_ik*dgdteta3[index_g_ij]*leg_var + g_ij*g_ik*dl3[index_leg];                                                                      
+    out4[index_target] = g_ij*dgdteta4[index_g_ik]*leg_var + g_ik*dgdteta4[index_g_ij]*leg_var + g_ij*g_ik*dl4[index_leg];                                                                            
+    out5[index_target] = g_ij*dgdteta5[index_g_ik]*leg_var + g_ik*dgdteta5[index_g_ij]*leg_var + g_ij*g_ik*dl5[index_leg];                                                                   
+    out6[index_target] = g_ij*dgdteta6[index_g_ik]*leg_var + g_ik*dgdteta6[index_g_ij]*leg_var + g_ij*g_ik*dl6[index_leg];                                                                        
+    out7[index_target] = g_ij*dgdteta7[index_g_ik]*leg_var + g_ik*dgdteta7[index_g_ij]*leg_var + g_ij*g_ik*dl7[index_leg];                                                                        
+    out8[index_target] = g_ij*dgdteta8[index_g_ik]*leg_var + g_ik*dgdteta8[index_g_ij]*leg_var + g_ij*g_ik*dl8[index_leg];                                                                        
+    out9[index_target] = g_ij*dgdteta9[index_g_ik]*leg_var + g_ik*dgdteta9[index_g_ij]*leg_var + g_ij*g_ik*dl9[index_leg];                                                                        
+    out10[index_target] = g_ij*g_ik*leg_var;
+                   
+}
+''', 'dqang_dteta_kernel')
+
+dqang_dteta_kernel_faster_upper = cp.RawKernel(r'''
+
+extern "C" __global__
+void dqang_dteta_kernel(
+    const float *__restrict__ g_rad, // [Np, nangp1, Nd]
+    const float *__restrict__ leg, // [Np, lmax, Nd*Nd]
+    const float *__restrict__ dl1, // [Np, lmax, Nd*Nd]
+    const float *__restrict__ dl2, // [Np, lmax, Nd*Nd]
+    const float *__restrict__ dl3, // [Np, lmax, Nd*Nd]
+    const float *__restrict__ dl4, // [Np, lmax, Nd*Nd]
+    const float *__restrict__ dl5, // [Np, lmax, Nd*Nd]
+    const float *__restrict__ dl6, // [Np, lmax, Nd*Nd]
+    const float *__restrict__ dl7, // [Np, lmax, Nd*Nd]
+    const float *__restrict__ dl8, // [Np, lmax, Nd*Nd]
+    const float *__restrict__ dl9, // [Np, lmax, Nd*Nd]
+    const float *__restrict__ dgdteta1, // [Np, nangp1, Nd]
+    const float *__restrict__ dgdteta2, // [Np, nangp1, Nd]
+    const float *__restrict__ dgdteta3, // [Np, nangp1, Nd]
+    const float *__restrict__ dgdteta4, // [Np, nangp1, Nd]
+    const float *__restrict__ dgdteta5, // [Np, nangp1, Nd]
+    const float *__restrict__ dgdteta6, // [Np, nangp1, Nd]
+    const float *__restrict__ dgdteta7, // [Np, nangp1, Nd]
+    const float *__restrict__ dgdteta8, // [Np, nangp1, Nd]
+    const float *__restrict__ dgdteta9, // [Np, nangp1, Nd]
+    float       *__restrict__ out1, // [Np, nangp1*lmax, Nd*Nd]
+    float       *__restrict__ out2, // [Np, nangp1*lmax, Nd*Nd]
+    float       *__restrict__ out3, // [Np, nangp1*lmax, Nd*Nd]
+    float       *__restrict__ out4, // [Np, nangp1*lmax, Nd*Nd]
+    float       *__restrict__ out5, // [Np, nangp1*lmax, Nd*Nd]
+    float       *__restrict__ out6, // [Np, nangp1*lmax, Nd*Nd]
+    float       *__restrict__ out7, // [Np, nangp1*lmax, Nd*Nd]
+    float       *__restrict__ out8, // [Np, nangp1*lmax, Nd*Nd]
+    float       *__restrict__ out9, // [Np, nangp1*lmax, Nd*Nd]
+    float       *__restrict__ out10, // [Np, nangp1*lmax, Nd*Nd]
+    const int Np,                       
+    const int nangp1,
+    const int lmax,
+    const int Nd)   
+
+{
+    int blx = blockIdx.x; // 0 to Np*nangp1*lmax
+    int thx = threadIdx.x; // 0 to Nd*Nd*6
+    int thy = threadIdx.y;                  
+    if(thx < thy) return;                                                           
+
+    int out_size = (Nd/2)*(Nd + 1);
+    //int index_target = blx*out_size + thy*Nd + thx;
+    int index_target = blx*out_size + ((2*Nd - thy + 1)*thy)/2 + thx - thy;
+                                                                                        
+    //if(index_target >= Np*nangp1*lmax*Nd*Nd) return; 
+    if(index_target >= Np*nangp1*lmax*out_size) return; 
+                                                                                     
+                                         
+                                                                   
+    int index_g_ik = (blx/lmax) * Nd + thx;
+    int index_g_ij = (blx/lmax) * Nd + thy;
+    int index_leg =  ((blx%lmax) + (blx/(lmax*nangp1))*lmax) * Nd * Nd + thy*Nd + thx;
+                                   
+    float g_ij = g_rad[index_g_ij];                                     
+    float g_ik = g_rad[index_g_ik];                                    
+    float leg_var = leg[index_leg];
+
+    float multiplier = 2.0f;                                                                                                                 
+    if(thx==thy)
+    {
+    multiplier = 1.0f;                                            
+    }                                           
+
+    out1[index_target] = (g_ij*dgdteta1[index_g_ik]*leg_var + g_ik*dgdteta1[index_g_ij]*leg_var + g_ij*g_ik*dl1[index_leg])*multiplier;                                                                               
+    out2[index_target] = (g_ij*dgdteta2[index_g_ik]*leg_var + g_ik*dgdteta2[index_g_ij]*leg_var + g_ij*g_ik*dl2[index_leg])*multiplier;                                                                              
+    out3[index_target] = (g_ij*dgdteta3[index_g_ik]*leg_var + g_ik*dgdteta3[index_g_ij]*leg_var + g_ij*g_ik*dl3[index_leg])*multiplier;                                                                      
+    out4[index_target] = (g_ij*dgdteta4[index_g_ik]*leg_var + g_ik*dgdteta4[index_g_ij]*leg_var + g_ij*g_ik*dl4[index_leg])*multiplier;                                                                            
+    out5[index_target] = (g_ij*dgdteta5[index_g_ik]*leg_var + g_ik*dgdteta5[index_g_ij]*leg_var + g_ij*g_ik*dl5[index_leg])*multiplier;                                                                   
+    out6[index_target] = (g_ij*dgdteta6[index_g_ik]*leg_var + g_ik*dgdteta6[index_g_ij]*leg_var + g_ij*g_ik*dl6[index_leg])*multiplier;                                                                        
+    out7[index_target] = (g_ij*dgdteta7[index_g_ik]*leg_var + g_ik*dgdteta7[index_g_ij]*leg_var + g_ij*g_ik*dl7[index_leg])*multiplier;                                                                        
+    out8[index_target] = (g_ij*dgdteta8[index_g_ik]*leg_var + g_ik*dgdteta8[index_g_ij]*leg_var + g_ij*g_ik*dl8[index_leg])*multiplier;                                                                        
+    out9[index_target] = (g_ij*dgdteta9[index_g_ik]*leg_var + g_ik*dgdteta9[index_g_ij]*leg_var + g_ij*g_ik*dl9[index_leg])*multiplier;                                                                        
+    out10[index_target] = (g_ij*g_ik*leg_var)*multiplier;
+                                               
                    
 }
 ''', 'dqang_dteta_kernel')

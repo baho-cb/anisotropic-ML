@@ -117,18 +117,20 @@ dl4 = cp.ascontiguousarray(dl4, dtype=cp.float32)
 dl5 = cp.ascontiguousarray(dl5, dtype=cp.float32)
 dl6 = cp.ascontiguousarray(dl6, dtype=cp.float32)
 
+Nupper = 78
+
 
 out_ref = cp.empty((Np, nangp1 * lmax, 144, 6), dtype=cp.float32)
-out_small1 = cp.empty((Np, nangp1 * lmax, 144), dtype=cp.float32)
-out_small2 = cp.empty((Np, nangp1 * lmax, 144), dtype=cp.float32)
-out_small3 = cp.empty((Np, nangp1 * lmax, 144), dtype=cp.float32)
-out_small4 = cp.empty((Np, nangp1 * lmax, 144), dtype=cp.float32)
-out_small5 = cp.empty((Np, nangp1 * lmax, 144), dtype=cp.float32)
-out_small6 = cp.empty((Np, nangp1 * lmax, 144), dtype=cp.float32)
-out_small7 = cp.empty((Np, nangp1 * lmax, 144), dtype=cp.float32)
-out_small8 = cp.empty((Np, nangp1 * lmax, 144), dtype=cp.float32)
-out_small9 = cp.empty((Np, nangp1 * lmax, 144), dtype=cp.float32)
-out_small10 = cp.empty((Np, nangp1 * lmax, 144), dtype=cp.float32)
+out_small1 = cp.zeros((Np, nangp1 * lmax, Nupper), dtype=cp.float32)
+out_small2 = cp.empty((Np, nangp1 * lmax, Nupper), dtype=cp.float32)
+out_small3 = cp.empty((Np, nangp1 * lmax, Nupper), dtype=cp.float32)
+out_small4 = cp.empty((Np, nangp1 * lmax, Nupper), dtype=cp.float32)
+out_small5 = cp.empty((Np, nangp1 * lmax, Nupper), dtype=cp.float32)
+out_small6 = cp.empty((Np, nangp1 * lmax, Nupper), dtype=cp.float32)
+out_small7 = cp.empty((Np, nangp1 * lmax, Nupper), dtype=cp.float32)
+out_small8 = cp.empty((Np, nangp1 * lmax, Nupper), dtype=cp.float32)
+out_small9 = cp.empty((Np, nangp1 * lmax, Nupper), dtype=cp.float32)
+out_small10 = cp.empty((Np, nangp1 * lmax, Nupper), dtype=cp.float32)
 
 blocks = (Np*nangp1*lmax,)
 threads_per_block = (Nd*Nd*6,)
@@ -190,19 +192,19 @@ cuda_dk2.dqang_dteta_kernel_faster_upper(
                 cp.int32(Nd),
                 ))
 
-# print(maxerr(out_small1, out_true[:,:,:,0]))
-# print(maxerr(out_small2, out_true[:,:,:,1]))
-# print(maxerr(out_small3, out_true[:,:,:,2]))
-# print(maxerr(out_small4, out_true[:,:,:,3]))
-# print(maxerr(out_small5, out_true[:,:,:,4]))
-# print(maxerr(out_small6, out_true[:,:,:,5]))
 
-# print(maxerr(out_small7, outxyz_true[:,:,:,0]))
-# print(maxerr(out_small8, outxyz_true[:,:,:,1]))
-# print(maxerr(out_small9, outxyz_true[:,:,:,2]))
+print(maxerr(cp.sum(out_small1,axis=-1), cp.sum(out_true[:,:,:,0],axis=-1)))
+print(maxerr(cp.sum(out_small2,axis=-1), cp.sum(out_true[:,:,:,1],axis=-1)))
+print(maxerr(cp.sum(out_small3,axis=-1), cp.sum(out_true[:,:,:,2],axis=-1)))
+print(maxerr(cp.sum(out_small4,axis=-1), cp.sum(out_true[:,:,:,3],axis=-1)))
+print(maxerr(cp.sum(out_small5,axis=-1), cp.sum(out_true[:,:,:,4],axis=-1)))
+print(maxerr(cp.sum(out_small6,axis=-1), cp.sum(out_true[:,:,:,5],axis=-1)))
+print(maxerr(cp.sum(out_small7,axis=-1), cp.sum(outxyz_true[:,:,:,0],axis=-1)))
+print(maxerr(cp.sum(out_small8,axis=-1), cp.sum(outxyz_true[:,:,:,1],axis=-1)))
+print(maxerr(cp.sum(out_small9,axis=-1), cp.sum(outxyz_true[:,:,:,2],axis=-1)))
+print(maxerr(cp.sum(out_small10,axis=-1), cp.sum(gang_true,axis=-1)))
+exit()
 
-# print(maxerr(out_small10, gang_true))
-# exit()
 
 print('start')
 t0 = time.time()
@@ -210,7 +212,7 @@ t0 = time.time()
 for i in range(2000):
 
 
-    cuda_dk2.dqang_dteta_kernel_faster(
+    cuda_dk2.dqang_dteta_kernel_faster_upper(
                 blocks, 
                 threads_per_block,
                 (g, 

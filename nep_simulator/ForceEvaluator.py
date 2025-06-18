@@ -177,7 +177,7 @@ class ForceEvaluator():
             # self.force_analytical[:,i] = cp.sum(self.dudq * dqdxyz[i][:,:], axis=1) * (-en_range)
             self.force_analytical[:,i] = cp.sum(self.dudq * dqdxyz[:,:,i], axis=1) * (-en_range)
 
-        self.test_comparison()
+        # self.test_comparison()
         self.net_interactions(pp)
         # self.test_net()
         return  self._forces, self._torks 
@@ -223,23 +223,31 @@ class ForceEvaluator():
 
 
     def net_interactions(self,pp):
+
+        self.force_analytical[self.force_analytical>100.0] = 100.0
+        self.tork1_analytical[self.tork1_analytical>100.0] = 100.0
+        self.tork2_analytical[self.tork2_analytical>100.0] = 100.0
+
+        self.force_analytical[self.force_analytical<-100.0] = -100.0
+        self.tork1_analytical[self.tork1_analytical<-100.0] = -100.0
+        self.tork2_analytical[self.tork2_analytical<-100.0] = -100.0
+
         self.tork1_analytical = torch.from_dlpack(self.tork1_analytical)
         self.tork2_analytical = torch.from_dlpack(self.tork2_analytical)
         self.force_analytical = torch.from_dlpack(self.force_analytical)
+        pp = torch.from_dlpack(pp)
 
         forces_net = torch.zeros((self.Nparticles,3),device=self.torch_device)
-        torks_net = torch.zeros((self.Nparticles,3),device=self.torch_device)
+        torks_net = torch.zeros((self.Nparticles,3),device=self.torch_device)       
 
         forces_net.index_add_(0, pp[:,0], self.force_analytical)
         forces_net.index_add_(0, pp[:,1], -self.force_analytical)
 
+
         torks_net.index_add_(0, pp[:,0], self.tork1_analytical)
         torks_net.index_add_(0, pp[:,1], self.tork2_analytical)
-
         self._torks = cp.from_dlpack(torks_net)
         self._forces = cp.from_dlpack(forces_net)
-
-
 
     def read_model_weights(self):
 
