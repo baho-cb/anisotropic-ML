@@ -78,6 +78,7 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
             cp.cuda.Stream.null.synchronize()
         t7 = time.time()
 
+        # self.kernel6()
         self.kernel6()
 
         if(self.is_sync==1):
@@ -85,17 +86,17 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
         t8= time.time()
 
         # self.kernel7()
-        self._kernel7()
+        self.kernel7()
 
         if(self.is_sync==1):
             cp.cuda.Stream.null.synchronize()
         t9= time.time()
 
-        self._kernel8()
+        # self._kernel8()
 
-        if(self.is_sync==1):
-            cp.cuda.Stream.null.synchronize()
-        t10= time.time()
+        # if(self.is_sync==1):
+        #     cp.cuda.Stream.null.synchronize()
+        # t10= time.time()
 
         self.t_pts += t1-t0
         self.t_dcos += t2-t1
@@ -106,7 +107,7 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
         self.t_k5 += t7-t6
         self.t_k6 += t8-t7
         self.t_k7 += t9-t8
-        self.t_k8 += t10-t9
+        # self.t_k8 += t10-t9
 
 
         return self.dq, self._q, self.pp, self.N_pair
@@ -558,7 +559,7 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
 
 
 
-    def kernel6(self):
+    def _kernel6(self):
         blocks = ((self.N_pair*self.lmax*self.nangp1*10//256) + 100,)
         threads = (256,)
         self.sums = []
@@ -566,7 +567,13 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
             self.sums.append(cp.empty((self.N_pair,self.lmax*self.nangp1),dtype=cp.float32))
 
         self.q_ang = cp.empty((self.N_pair,self.lmax*self.nangp1),dtype=cp.float32)
-        cuda_sum.sum_kernel3(
+        
+        self.dqraddteta = cp.empty((6,self.N_pair,11),dtype=cp.float32)
+        self.dqraddxyz = cp.empty((3,self.N_pair,11),dtype=cp.float32)
+        self.qrad = cp.empty((self.N_pair,11),dtype=cp.float32)
+        
+
+        cuda_sum.sum_kernel4(
         blocks,
         threads,
         (self.out1, self.sums[0],
@@ -579,16 +586,56 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
         self.out8, self.sums[7],
         self.out9, self.sums[8],
         self._gang, self.q_ang,
+        self.dgdteta, self.dqraddteta,
+        self.dgdxyz, self.dqraddxyz,
+        self._grad, self.qrad,
+          self.cp_N_pair, self.cp_lmax*self.cp_nangp1, cp.int32(78))
+    )
+
+    def kernel6(self):
+        nblock = self.N_pair*self.lmax*self.nangp1*10 + self.N_pair*11*10
+        blocks = ((nblock//256) + 100,)
+        threads = (256,)
+        self.sums = []
+        for i in range(10):
+            self.sums.append(cp.empty((self.N_pair,self.lmax*self.nangp1),dtype=cp.float32))
+
+        self.q_ang = cp.empty((self.N_pair,self.lmax*self.nangp1),dtype=cp.float32)
+        
+        self.dqraddteta = cp.zeros((6,self.N_pair,11),dtype=cp.float32)
+        self.dqraddxyz = cp.empty((3,self.N_pair,11),dtype=cp.float32)
+        self.qrad = cp.empty((self.N_pair,11),dtype=cp.float32)        
+
+        cuda_sum.sum_kernel4(
+        blocks,
+        threads,
+        (self.out1, self.sums[0],
+        self.out2, self.sums[1],
+        self.out3, self.sums[2],
+        self.out4, self.sums[3],
+        self.out5, self.sums[4],
+        self.out6, self.sums[5],
+        self.out7, self.sums[6],
+        self.out8, self.sums[7],
+        self.out9, self.sums[8],
+        self._gang, self.q_ang,
+        self.dgdteta, self.dqraddteta,
+        self.dgdxyz, self.dqraddxyz,
+        self._grad, self.qrad,
           self.cp_N_pair, self.cp_lmax*self.cp_nangp1, cp.int32(78))
     )
 
        
+    def kernel7(self):
 
-    def _kernel7(self):
-        self.q_rad = cp.sum(self._grad,axis=-1)
+        self.dq = []
+        for i in range(6):
+            self.dq.append(cp.concatenate(( self.dqraddteta[i],self.sums[i]),axis=-1))
+        
+        for i in range(6,9):
+            self.dq.append(cp.concatenate(( self.dqraddxyz[i-6],self.sums[i]),axis=-1))
 
-        self._dqraddteta = cp.sum(self.dgdteta,axis=-1)
-        self._dqraddxyz = cp.sum(self.dgdxyz,axis=-1)
+        self._q = cp.concatenate((self.qrad,self.q_ang),axis=1)
 
     def _kernel8(self):
 
@@ -601,6 +648,17 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
 
         self._q = cp.concatenate((self.q_rad,self.q_ang),axis=1)
 
+    def _oldkernel7(self):
+        self._q_rad = cp.sum(self._grad,axis=-1)
+
+        self._dqraddteta = cp.sum(self.dgdteta,axis=-1)
+        self._dqraddxyz = cp.sum(self.dgdxyz,axis=-1)
+
+        # print(mu.maxerr(self.dqraddteta[0],self._dqraddteta[0]))
+        print(mu.maxerr(self.dqraddteta,self._dqraddteta))
+        print(mu.maxerr(self.dqraddxyz,self._dqraddxyz))
+        print(mu.maxerr(self.qrad,self._q_rad))
+        exit()
 
     def oldkernel7(self):
         q_rad = cp.sum(self._grad,axis=-1)

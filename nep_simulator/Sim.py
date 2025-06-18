@@ -216,7 +216,7 @@ class Sim():
         self._t_nlist = 0
 
     def run(self,Nsteps):
-        self.is_sync = 1
+        self.is_sync = 0
         self.descriptor_generator.setSync(self.is_sync)
         self.evaluator.setSync(self.is_sync)
         self.set_timers()
@@ -262,7 +262,7 @@ class Sim():
         print('t_k5 : %.2f'%(self.descriptor_generator.t_k5))
         print('t_k6 : %.2f'%(self.descriptor_generator.t_k6))
         print('t_k7 : %.2f'%(self.descriptor_generator.t_k7))
-        print('t_k8 : %.2f'%(self.descriptor_generator.t_k8))
+        # print('t_k8 : %.2f'%(self.descriptor_generator.t_k8))
 
         # print('NEP timers')
         # print('t_nep1 : %.2f'%(self.descriptor_generator.t_nep1))
