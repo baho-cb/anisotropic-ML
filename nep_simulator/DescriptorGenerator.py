@@ -41,8 +41,17 @@ class DescriptorGenerator():
         self.nang = int(hypers[1])
         self.lmax = int(hypers[2])
         self.cutoff_nep = hypers[3]
+        self.nradp1 = self.nrad + 1
+        self.nangp1 = self.nang + 1
         self.N_descriptors = (self.nrad + 1) + (self.nang + 1)*self.lmax
         self.buffer_size = 0 
+        
+        self.cp_nangp1 = cp.int32(self.nang + 1)
+        self.cp_nradp1 = cp.int32(self.nrad + 1)
+        self.cp_lmax = cp.int32(self.lmax)
+        
+
+
 
     def setSync(self,is_sync):
         self.is_sync = is_sync

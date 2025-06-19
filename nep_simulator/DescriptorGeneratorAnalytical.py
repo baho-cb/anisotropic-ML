@@ -2,17 +2,10 @@ from DescriptorGenerator import DescriptorGenerator
 import cupy as cp
 import numpy as np
 import time
-import torch
-import matplotlib.pyplot as plt
-from cudakernels.NepDescriptorKernels import angular_cuda_kernel, radial_cuda_kernel
-import cudakernels.PosToPtsKernels as ptp
-from cudakernels.SingleKernel import single_kernel
-from cudakernels.SingleKernelDebug import single_kernel_debug
 import sys
 import cudakernels.DerivativeKernels as cuda_dk
 import cudakernels.DerivativeKernels2 as cuda_dk2
 import cudakernels.SumKernels as cuda_sum
-import cudakernels.DangDtetaKernel as cuda_opt
 import MathUtils as mu
 
 """
@@ -356,11 +349,7 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
         self.dg9 = cp.ascontiguousarray(self.dg9, dtype=cp.float32)
 
         self.cp_N_pair = cp.int32(self.N_pair)
-        self.cp_nangp1 = cp.int32(self.nang + 1)
-        self.nangp1 = self.nang + 1
-        self.cp_lmax = cp.int32(self.lmax)
         self.cp_Nd = cp.int32(self.Nd)
-        self.cp_nradp1 = cp.int32(self.nrad + 1)
 
     def kernel5(self):
         self.Nb = (self.N_pair * 36) + 1000 
@@ -413,7 +402,7 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
 
 
     def kernel6(self):
-        nblock = self.N_pair*self.lmax*self.nangp1*10 + self.N_pair*11*10
+        nblock = self.N_pair*self.lmax*self.nangp1*10 + self.N_pair*self.nradp1*10
         blocks = ((nblock//256) + 100,)
         threads = (256,)
         self.sums = []
@@ -422,9 +411,9 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
 
         self.q_ang = cp.empty((self.N_pair,self.lmax*self.nangp1),dtype=cp.float32)
         
-        self.dqraddteta = cp.zeros((6,self.N_pair,11),dtype=cp.float32)
-        self.dqraddxyz = cp.empty((3,self.N_pair,11),dtype=cp.float32)
-        self.qrad = cp.empty((self.N_pair,11),dtype=cp.float32)        
+        self.dqraddteta = cp.zeros((6,self.N_pair,self.nradp1),dtype=cp.float32)
+        self.dqraddxyz = cp.empty((3,self.N_pair,self.nradp1),dtype=cp.float32)
+        self.qrad = cp.empty((self.N_pair,self.nradp1),dtype=cp.float32)        
 
         cuda_sum.sum_kernel4(
         blocks,
@@ -442,7 +431,7 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
         self.dgdteta, self.dqraddteta,
         self.dgdxyz, self.dqraddxyz,
         self._grad, self.qrad,
-          self.cp_N_pair, self.cp_lmax*self.cp_nangp1, cp.int32(78))
+          self.cp_N_pair, self.cp_lmax*self.cp_nangp1, self.cp_nradp1,cp.int32(78))
     )
 
        
