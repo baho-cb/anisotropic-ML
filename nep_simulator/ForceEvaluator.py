@@ -307,7 +307,7 @@ class ForceEvaluator():
             masks.append(m)
 
         # Last (output) layer – linear
-        y = (a @ self.weights[-1].T + self.biases[-1]).squeeze(-1)   # (B,)
+        # y = (a @ self.weights[-1].T + self.biases[-1]).squeeze(-1)   # (B,)
 
         # ------------ B A C K W A R D  (∂f/∂x) -------------------------------
         # Start with gradient of output w.r.t. last hidden activation:

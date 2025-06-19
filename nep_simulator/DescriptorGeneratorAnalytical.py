@@ -36,8 +36,7 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
             cp.cuda.Stream.null.synchronize()
         t1 = time.time()
 
-        # self.calculate_dcosdteta()
-        self._calculate_dcosdteta()
+        self.calculate_dcosdteta()
        
         if(self.is_sync==1):
             cp.cuda.Stream.null.synchronize()
@@ -49,23 +48,20 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
             cp.cuda.Stream.null.synchronize()
         t3 = time.time()
 
-        # self.kernel2()
-        self._kernel2()
+        self.kernel2()
 
         if(self.is_sync==1):
             cp.cuda.Stream.null.synchronize()
         t4 = time.time()
 
-        # self.kernel3()
-        self._kernel3()
+        self.kernel3()
 
 
         if(self.is_sync==1):
             cp.cuda.Stream.null.synchronize()
         t5 = time.time()
         
-        # self.kernel4()
-        self._kernel4()
+        self.kernel4()
 
         if(self.is_sync==1):
             cp.cuda.Stream.null.synchronize()
@@ -78,25 +74,18 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
             cp.cuda.Stream.null.synchronize()
         t7 = time.time()
 
-        # self.kernel6()
         self.kernel6()
 
         if(self.is_sync==1):
             cp.cuda.Stream.null.synchronize()
         t8= time.time()
 
-        # self.kernel7()
         self.kernel7()
 
         if(self.is_sync==1):
             cp.cuda.Stream.null.synchronize()
         t9= time.time()
 
-        # self._kernel8()
-
-        # if(self.is_sync==1):
-        #     cp.cuda.Stream.null.synchronize()
-        # t10= time.time()
 
         self.t_pts += t1-t0
         self.t_dcos += t2-t1
@@ -180,41 +169,8 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
 
 
 
+
     def calculate_dcosdteta(self):
-
-        blocks = (self.N_pair,)
-        threads_per_block = (self.Nd*self.Nd,)
-
-        self._r12 = cp.concatenate((self._r1, self._r2),axis=1)
-        self._p12dteta = cp.concatenate((self._p1dteta, self._p2dteta),axis=1)
-        self._dr12dteta = cp.concatenate((self._dr1dteta, self._dr2dteta),axis=1)
-
-        self._cosine = cp.empty((self.N_pair, self.Nd, self.Nd), dtype=cp.float32)
-        self._dcosdteta = cp.zeros((self.N_pair, self.Nd, self.Nd, 6), dtype=cp.float32)
-        self._dcosdxyz = cp.zeros((self.N_pair, self.Nd, self.Nd, 3), dtype=cp.float32)
-        self._leg = cp.empty((self.N_pair, self.lmax, self.Nd, self.Nd), dtype=cp.float32)
-        self._dlegdcos = cp.empty((self.N_pair, self.lmax, self.Nd, self.Nd), dtype=cp.float32)
-    
-        cuda_dk.cosine_kernel(
-            blocks,
-            threads_per_block,
-            (
-                self._P,
-                self._r12,
-                self._p12dteta,
-                self._dr12dteta,
-                self._cosine,
-                self._dcosdteta,
-                self._dcosdxyz,
-                self._leg,
-                self._dlegdcos,
-                cp.int32(self.lmax),
-                cp.int32(self.N_pair),
-                cp.int32(self.Nd)
-            )
-        )
-
-    def _calculate_dcosdteta(self):
 
         blocks = (self.N_pair,)
         threads_per_block = (self.Nd*self.Nd,)
@@ -285,31 +241,8 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
             )
         )
 
+
     def kernel2(self):
-
-        self._dgdteta = cp.empty((self.N_pair,self.nrad + 1,self.Nd, 6),dtype=cp.float32) # (N_pair,6,3)
-        self._dgdxyz = cp.empty((self.N_pair,self.nrad + 1,self.Nd, 3),dtype=cp.float32) # (N_pair,6,3)
-        n_chebysev = self.nrad + 1
-        blocks = (self.N_pair*n_chebysev,)
-        threads_per_block = (self.Nd,)
-        n_chebysev = self.nrad + 1
-        
-        cuda_dk2.dgdteta_kernel(
-            blocks,
-            threads_per_block,
-            (
-                self._dgdr,
-                self._drdp,    
-                self._p12dteta,
-                self._dgdteta,
-                self._dgdxyz,
-                n_chebysev,
-                cp.int32(self.N_pair),
-                cp.int32(self.Nd)
-            )
-        )
-
-    def _kernel2(self):
 
         self.dgdteta = cp.empty((6,self.N_pair,self.nrad + 1,self.Nd),dtype=cp.float32) # (N_pair,6,3)
         self.dgdxyz = cp.empty((3,self.N_pair,self.nrad + 1,self.Nd),dtype=cp.float32) # (N_pair,6,3)
@@ -344,16 +277,8 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
         # print(mu.maxerr(self.dgdteta[5],self._dgdteta[:,:,:,5]))
         # exit()
 
+
     def kernel3(self):    
-
-        self._dlegdcos = self._dlegdcos.reshape(self.N_pair, self.lmax, self.Nd * self.Nd) 
-        self._dcosdteta = self._dcosdteta.reshape(self.N_pair, self.Nd * self.Nd, 6)  #
-        self._dcosdxyz = self._dcosdxyz.reshape(self.N_pair,144,3)
-
-        self._dlegdteta = self._dlegdcos[:,:,:,cp.newaxis] * self._dcosdteta[:,cp.newaxis,:,:]  # shape (N_pair, lmax, Nd, Nd)
-        self._dlegdxyz = self._dlegdcos[:,:,:,cp.newaxis] * self._dcosdxyz[:,cp.newaxis,:,:]  # shape (N_pair, lmax, Nd, Nd)
-
-    def _kernel3(self):    
 
         self.dlegdcos = self.dlegdcos.reshape(self.N_pair, self.lmax, self.Nd * self.Nd) 
         self.dcosdteta = self.dcosdteta.reshape(6,self.N_pair, self.Nd * self.Nd)  #
@@ -365,79 +290,6 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
         
 
     def kernel4(self):             
-
-
-        self._gradforang = self._grad[:,:self.nang+1]
-        self._gradforang = cp.ascontiguousarray(self._gradforang)
-        self._dgdtetaforang = self._dgdteta[:,:self.nang+1]
-        self._dgdtetaforang = cp.ascontiguousarray(self._dgdtetaforang)
-        self._dgdxyzforang = self._dgdxyz[:,:self.nang+1]
-        self._dgdxyzforang = cp.ascontiguousarray(self._dgdxyzforang)
-
-        self.dl1 = self._dlegdteta[:,:,:,0]
-        self.dl2 = self._dlegdteta[:,:,:,1]
-        self.dl3 = self._dlegdteta[:,:,:,2]
-        self.dl4 = self._dlegdteta[:,:,:,3]
-        self.dl5 = self._dlegdteta[:,:,:,4]
-        self.dl6 = self._dlegdteta[:,:,:,5]
-
-        self.dl7 = self._dlegdxyz[:,:,:,0]
-        self.dl8 = self._dlegdxyz[:,:,:,1]
-        self.dl9 = self._dlegdxyz[:,:,:,2]
-
-        self.dg1 = self._dgdtetaforang[:,:,:,0]
-        self.dg2 = self._dgdtetaforang[:,:,:,1]
-        self.dg3 = self._dgdtetaforang[:,:,:,2]
-        self.dg4 = self._dgdtetaforang[:,:,:,3]
-        self.dg5 = self._dgdtetaforang[:,:,:,4]
-        self.dg6 = self._dgdtetaforang[:,:,:,5]
-
-        self.dg7 = self._dgdxyzforang[:,:,:,0]
-        self.dg8 = self._dgdxyzforang[:,:,:,1]
-        self.dg9 = self._dgdxyzforang[:,:,:,2]
-
-
-        Nupper = 78
-        self._gang = cp.empty((self.N_pair, (self.nang+1) * self.lmax, Nupper), dtype=cp.float32)
-
-        self.out1 = cp.empty((self.N_pair, (self.nang+1) * self.lmax, Nupper), dtype=cp.float32)
-        self.out2 = cp.empty((self.N_pair, (self.nang+1) * self.lmax, Nupper), dtype=cp.float32)
-        self.out3 = cp.empty((self.N_pair, (self.nang+1) * self.lmax, Nupper), dtype=cp.float32)
-        self.out4 = cp.empty((self.N_pair, (self.nang+1) * self.lmax, Nupper), dtype=cp.float32)
-        self.out5 = cp.empty((self.N_pair, (self.nang+1) * self.lmax, Nupper), dtype=cp.float32)
-        self.out6 = cp.empty((self.N_pair, (self.nang+1) * self.lmax, Nupper), dtype=cp.float32)
-        self.out7 = cp.empty((self.N_pair, (self.nang+1) * self.lmax, Nupper), dtype=cp.float32)
-        self.out8 = cp.empty((self.N_pair, (self.nang+1) * self.lmax, Nupper), dtype=cp.float32)
-        self.out9 = cp.empty((self.N_pair, (self.nang+1) * self.lmax, Nupper), dtype=cp.float32)
-
-        self.dl1 = cp.ascontiguousarray(self.dl1, dtype=cp.float32)
-        self.dl2 = cp.ascontiguousarray(self.dl2, dtype=cp.float32)
-        self.dl3 = cp.ascontiguousarray(self.dl3, dtype=cp.float32)
-        self.dl4 = cp.ascontiguousarray(self.dl4, dtype=cp.float32)
-        self.dl5 = cp.ascontiguousarray(self.dl5, dtype=cp.float32)
-        self.dl6 = cp.ascontiguousarray(self.dl6, dtype=cp.float32)
-        self.dl7 = cp.ascontiguousarray(self.dl7, dtype=cp.float32)
-        self.dl8 = cp.ascontiguousarray(self.dl8, dtype=cp.float32)
-        self.dl9 = cp.ascontiguousarray(self.dl9, dtype=cp.float32)
-
-        self.dg1 = cp.ascontiguousarray(self.dg1, dtype=cp.float32)
-        self.dg2 = cp.ascontiguousarray(self.dg2, dtype=cp.float32)
-        self.dg3 = cp.ascontiguousarray(self.dg3, dtype=cp.float32)
-        self.dg4 = cp.ascontiguousarray(self.dg4, dtype=cp.float32)
-        self.dg5 = cp.ascontiguousarray(self.dg5, dtype=cp.float32)
-        self.dg6 = cp.ascontiguousarray(self.dg6, dtype=cp.float32)
-        self.dg7 = cp.ascontiguousarray(self.dg7, dtype=cp.float32)
-        self.dg8 = cp.ascontiguousarray(self.dg8, dtype=cp.float32)
-        self.dg9 = cp.ascontiguousarray(self.dg9, dtype=cp.float32)
-
-        self.cp_N_pair = cp.int32(self.N_pair)
-        self.cp_nangp1 = cp.int32(self.nang + 1)
-        self.nangp1 = self.nang + 1
-        self.cp_lmax = cp.int32(self.lmax)
-        self.cp_Nd = cp.int32(self.Nd)
-        self.cp_nradp1 = cp.int32(self.nrad + 1)
-
-    def _kernel4(self):             
 
 
         self.gradforang = self._grad[:,:self.nang+1]
@@ -559,38 +411,6 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
 
 
 
-    def _kernel6(self):
-        blocks = ((self.N_pair*self.lmax*self.nangp1*10//256) + 100,)
-        threads = (256,)
-        self.sums = []
-        for i in range(10):
-            self.sums.append(cp.empty((self.N_pair,self.lmax*self.nangp1),dtype=cp.float32))
-
-        self.q_ang = cp.empty((self.N_pair,self.lmax*self.nangp1),dtype=cp.float32)
-        
-        self.dqraddteta = cp.empty((6,self.N_pair,11),dtype=cp.float32)
-        self.dqraddxyz = cp.empty((3,self.N_pair,11),dtype=cp.float32)
-        self.qrad = cp.empty((self.N_pair,11),dtype=cp.float32)
-        
-
-        cuda_sum.sum_kernel4(
-        blocks,
-        threads,
-        (self.out1, self.sums[0],
-        self.out2, self.sums[1],
-        self.out3, self.sums[2],
-        self.out4, self.sums[3],
-        self.out5, self.sums[4],
-        self.out6, self.sums[5],
-        self.out7, self.sums[6],
-        self.out8, self.sums[7],
-        self.out9, self.sums[8],
-        self._gang, self.q_ang,
-        self.dgdteta, self.dqraddteta,
-        self.dgdxyz, self.dqraddxyz,
-        self._grad, self.qrad,
-          self.cp_N_pair, self.cp_lmax*self.cp_nangp1, cp.int32(78))
-    )
 
     def kernel6(self):
         nblock = self.N_pair*self.lmax*self.nangp1*10 + self.N_pair*11*10
@@ -636,6 +456,49 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
             self.dq.append(cp.concatenate(( self.dqraddxyz[i-6],self.sums[i]),axis=-1))
 
         self._q = cp.concatenate((self.qrad,self.q_ang),axis=1)
+
+
+
+############### OLDER-NOT USED FUNCTIONS BELOW ##########################3
+
+
+    def calculate_dcosdteta(self):
+
+        blocks = (self.N_pair,)
+        threads_per_block = (self.Nd*self.Nd,)
+
+        self._r12 = cp.concatenate((self._r1, self._r2),axis=1)
+        self._p12dteta = cp.concatenate((self._p1dteta, self._p2dteta),axis=1)
+        self._dr12dteta = cp.concatenate((self._dr1dteta, self._dr2dteta),axis=1)
+
+        self._cosine = cp.empty((self.N_pair, self.Nd, self.Nd), dtype=cp.float32)
+        self._dcosdteta = cp.zeros((self.N_pair, self.Nd, self.Nd, 6), dtype=cp.float32)
+        self._dcosdxyz = cp.zeros((self.N_pair, self.Nd, self.Nd, 3), dtype=cp.float32)
+        self._leg = cp.empty((self.N_pair, self.lmax, self.Nd, self.Nd), dtype=cp.float32)
+        self._dlegdcos = cp.empty((self.N_pair, self.lmax, self.Nd, self.Nd), dtype=cp.float32)
+    
+        cuda_dk.cosine_kernel(
+            blocks,
+            threads_per_block,
+            (
+                self._P,
+                self._r12,
+                self._p12dteta,
+                self._dr12dteta,
+                self._cosine,
+                self._dcosdteta,
+                self._dcosdxyz,
+                self._leg,
+                self._dlegdcos,
+                cp.int32(self.lmax),
+                cp.int32(self.N_pair),
+                cp.int32(self.Nd)
+            )
+        )
+
+
+
+
 
     def _kernel8(self):
 
