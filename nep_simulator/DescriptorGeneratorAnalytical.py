@@ -363,7 +363,7 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
         self.cp_nradp1 = cp.int32(self.nrad + 1)
 
     def kernel5(self):
-        self.Nb = 240000
+        self.Nb = (self.N_pair * 36) + 1000 
         if(self.N_pair * 36 > self.Nb):
             self.Nb = self.N_pair * 36 + 2000
             print('update')
@@ -462,7 +462,7 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
 ############### OLDER-NOT USED FUNCTIONS BELOW ##########################3
 
 
-    def calculate_dcosdteta(self):
+    def _calculate_dcosdteta(self):
 
         blocks = (self.N_pair,)
         threads_per_block = (self.Nd*self.Nd,)
