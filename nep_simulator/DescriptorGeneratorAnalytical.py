@@ -272,6 +272,10 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
 
 
     def kernel3(self):    
+        print(self.dlegdcos.shape)
+        print(self.dcosdteta.shape)
+        print(self.dcosdxyz.shape)
+        exit()    
 
         self.dlegdcos = self.dlegdcos.reshape(self.N_pair, self.lmax, self.Nd * self.Nd) 
         self.dcosdteta = self.dcosdteta.reshape(6,self.N_pair, self.Nd * self.Nd)  #

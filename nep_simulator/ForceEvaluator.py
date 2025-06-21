@@ -4,6 +4,8 @@ import cupy as cp
 import numpy as np 
 from typing import Sequence, Tuple, Callable
 import matplotlib.pyplot as plt 
+import time 
+import cudakernels.ForceKernels as fk
 
 class TheEnergyNet(nn.Module):
     """basic FF network for approximating functions"""
@@ -58,6 +60,11 @@ class ForceEvaluator():
 
     def setSync(self,is_sync):
         self.is_sync = is_sync    
+        self.t_e1 = 0.0
+        self.t_e2 = 0.0
+        self.t_e3 = 0.0
+        self.t_e4 = 0.0
+        self.t_e5 = 0.0
 
     def read_model(self,model_path):
         energy_model =  TheEnergyNet(self.width,self.depth,self.Nd)
@@ -159,39 +166,103 @@ class ForceEvaluator():
     ######## FUNCTIONS NEEDED FOR ANALYTICAL DERICATIVE ######## 
 
     def evaluate_interactions_analytical(self,_q,pp,N_pair,dq):
+        if(self.is_sync==1):
+            cp.cuda.Stream.null.synchronize()
+        t0 = time.time()
+
         self.evaluate_gradients_analytical(_q)
 
-        self.tork1_analytical = cp.zeros((N_pair,3),dtype=cp.float32)
-        self.tork2_analytical = cp.zeros((N_pair,3),dtype=cp.float32)
-        self.force_analytical = cp.zeros((N_pair,3),dtype=cp.float32)
-        en_range = self.en_max - self.en_min
+        if(self.is_sync==1):
+            cp.cuda.Stream.null.synchronize()
+        t1 = time.time()
 
-        # for i in range(3):
-        #     # self.tork1_analytical[:,i] = cp.sum(self.dudq * dqall_dtetalist[i][:,:], axis=1) * (-en_range)
-        #     # self.tork1_analytical[:,i] = cp.sum(self.dudq * dqall_dtetalist[:,:,i], axis=1) * (-en_range)
-        #     self.tork1_analytical[:,i] = cp.sum(self.dudq * dqall_dtetalist[i,:,:], axis=1) * (-en_range)
-        # for i in range(3):
-        #     # self.tork2_analytical[:,i] = cp.sum(self.dudq * dqall_dtetalist[i+3][:,:], axis=1) * (-en_range)
-        #     self.tork2_analytical[:,i] = cp.sum(self.dudq * dqall_dtetalist[i+3,:,:], axis=1) * (-en_range)
-        #     # self.tork2_analytical[:,i] = cp.sum(self.dudq * dqall_dtetalist[:,:,i+3], axis=1) * (-en_range)
+        self.sum_dudq_dqdx_kernel(N_pair,dq)
+        # self.sum_dudq_dqdx(N_pair,dq)
 
-        # for i in range(3):
-        #     # self.force_analytical[:,i] = cp.sum(self.dudq * dqdxyz[i][:,:], axis=1) * (-en_range)
-        #     self.force_analytical[:,i] = cp.sum(self.dudq * dqdxyz[i,:,:], axis=1) * (-en_range)
-        #     # self.force_analytical[:,i] = cp.sum(self.dudq * dqdxyz[:,:,i], axis=1) * (-en_range)
-
-        for i in range(3):
-            self.tork1_analytical[:,i] = cp.sum(self.dudq * dq[i], axis=1) * (-en_range)
-        for i in range(3,6):
-            self.tork2_analytical[:,i-3] = cp.sum(self.dudq * dq[i], axis=1) * (-en_range)
-        for i in range(6,9):
-            self.force_analytical[:,i-6] = cp.sum(self.dudq * dq[i], axis=1) * (-en_range)
+        if(self.is_sync==1):
+            cp.cuda.Stream.null.synchronize()
+        t2 = time.time()
 
         # self.test_comparison()
-        self.net_interactions(pp)
+        self.net_interactions_kernel(pp,N_pair)
+        # self.net_interactions(pp)
         # self.test_net()
+
+        if(self.is_sync==1):
+            cp.cuda.Stream.null.synchronize()
+        t3 = time.time()
+
+        self.t_e1 += t1-t0
+        self.t_e2 += t2-t1
+        self.t_e3 += t3-t2
+
+
         return  self._forces, self._torks 
+
+    def sum_dudq_dqdx_kernel(self,N_pair,dq):
+
+        n_threads = 256
+        n_blocks = (9*N_pair//n_threads) + 200 
+
+        blocks = (n_blocks,)
+        threads_per_block = (n_threads,)
+
+        self.tork1_analytical = cp.empty((N_pair,3),dtype=cp.float32)
+        self.tork2_analytical = cp.empty((N_pair,3),dtype=cp.float32)
+        self.force_analytical = cp.empty((N_pair,3),dtype=cp.float32)
+        en_range = self.en_max - self.en_min
+        n_desc = dq[0].shape[1]
+
+        fk.dudq_dqdx_sum_kernel(
+            blocks,
+            threads_per_block,
+            (
+                self.dudq,
+                dq[0],    
+                dq[1],    
+                dq[2],    
+                dq[3],    
+                dq[4],    
+                dq[5],    
+                dq[6],    
+                dq[7],    
+                dq[8],    
+                self.tork1_analytical,
+                self.tork2_analytical,
+                self.force_analytical,
+                cp.int32(N_pair),
+                cp.int32(n_desc),
+                cp.float32(en_range)
+            )
+        )
+
+
+
+    def sum_dudq_dqdx(self,N_pair,dq):
+
+        self._tork1_analytical = cp.zeros((N_pair,3),dtype=cp.float32)
+        self._tork2_analytical = cp.zeros((N_pair,3),dtype=cp.float32)
+        self._force_analytical = cp.zeros((N_pair,3),dtype=cp.float32)
+        en_range = self.en_max - self.en_min
+
+        for i in range(3):
+            self._tork1_analytical[:,i] = cp.sum(self.dudq * dq[i], axis=1) * (-en_range)
+        for i in range(3,6):
+            self._tork2_analytical[:,i-3] = cp.sum(self.dudq * dq[i], axis=1) * (-en_range)
+        for i in range(6,9):
+            self._force_analytical[:,i-6] = cp.sum(self.dudq * dq[i], axis=1) * (-en_range)
+
     
+        diff1 = cp.abs(self._tork1_analytical - self.tork1_analytical)
+        diff2 = cp.abs(self._tork2_analytical - self.tork2_analytical)
+        diff3 = cp.abs(self._force_analytical - self.force_analytical)
+        print(cp.max(diff1))
+        print(cp.max(diff2))
+        print(cp.max(diff3))
+        exit()
+
+
+
     def test_comparison(self):
         diff1 = cp.abs(self.tork1_analytical - self.t_true1)
         diff2 = cp.abs(self.tork2_analytical - self.t_true2)
@@ -259,6 +330,51 @@ class ForceEvaluator():
         self._torks = cp.from_dlpack(torks_net)
         self._forces = cp.from_dlpack(forces_net)
 
+        print(self._torks[:20,0])
+        print(self._torks_net[:20,0])
+        # exit()
+
+        diff = cp.abs(self._torks -self._torks_net )
+        difff = cp.abs(self._forces -self._forces_net )
+        # print(cp.max(diff[:,0]))
+        # print(cp.max(diff[:,1]))
+        # print(cp.max(diff[:,2]))
+        # print(cp.max(difff[:,0]))
+        # print(cp.max(difff[:,1]))
+        # print(cp.max(difff[:,2]))
+        # exit()
+
+
+    def net_interactions_kernel(self,pp,N_pair):
+        self.torks_net = cp.zeros((self.Nparticles,3),dtype=cp.float32)
+        self.forces_net = cp.zeros((self.Nparticles,3),dtype=cp.float32)
+
+        n_threads = 256
+        n_blocks = (12*N_pair//n_threads) + 200 
+        pp = pp.astype(cp.int32)
+
+
+        blocks = (n_blocks,)
+        threads_per_block = (n_threads,)
+
+        fk.index_add_kernel(
+            blocks,
+            threads_per_block,
+            (
+                self.tork1_analytical,
+                self.tork2_analytical,    
+                self.force_analytical,    
+                pp,
+                self.torks_net,
+                self.forces_net,
+                cp.int32(N_pair),
+                cp.int32(self.Nparticles),
+            )
+        )
+        self._torks = self.torks_net
+        self._forces = self.forces_net
+
+
     def read_model_weights(self):
 
         self.weights = []
@@ -300,6 +416,7 @@ class ForceEvaluator():
         a = x
 
         for W, b in zip(self.weights[:-1], self.biases[:-1]):     # all hidden layers
+            print(W.shape)
 
             z = a @ W.T + b            # (B, n_k)
             a, m = relu(z)       # activation + derivative mask
@@ -311,13 +428,15 @@ class ForceEvaluator():
 
         # ------------ B A C K W A R D  (∂f/∂x) -------------------------------
         # Start with gradient of output w.r.t. last hidden activation:
-        # y = a_{L-1} · W_L^T + b_L     → dy/da = W_L
+        # y = a_{L-1} · W_L^T + b_L     → dy/da = W_L // no need of this line for the derivative 
         g = cp.broadcast_to(self.weights[-1], (x.shape[0], self.weights[-1].shape[1]))  # (B, n_{L-1})
 
         # Propagate through hidden layers in reverse
         for W, m in zip(reversed(self.weights[:-1]), reversed(masks)):   # ↩︎ hidden
             # g = (g @ W) * m 
             g = (g * m) @ W         # (B, n_{k-1})
+
+
 
         self.dudq = g         # (B, in_dim)
 
