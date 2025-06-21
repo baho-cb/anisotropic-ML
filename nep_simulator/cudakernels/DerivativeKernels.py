@@ -130,10 +130,12 @@ void calculate_dcosdtheta(
     const float* __restrict__ dp12dteta, // [Np, Nd, 3]   
     const float* __restrict__ dr12dteta, // [Np, Nd, 3] 
     float* __restrict__ cosine, // [Np, Nd*Nd] 
-    float* __restrict__ dcosdteta, // [6, Np, Nd*Nd]
-    float* __restrict__ dcosdxyz, // [3, Np, Nd*Nd]
+ //   float* __restrict__ dcosdteta, // [6, Np, Nd*Nd]
+ //   float* __restrict__ dcosdxyz, // [3, Np, Nd*Nd]
     float* __restrict__ leg, // [Np, lmax, Nd, Nd]                                                     
-    float* __restrict__ dlegdcos, // [Np, lmax, Nd, Nd]                                                     
+ //   float* __restrict__ dlegdcos, // [Np, lmax, Nd, Nd]                                                     
+    float* __restrict__ dlegdteta, // [6, Np, lmax, Nd*Nd]                                                     
+    float* __restrict__ dlegdxyz, // [6, Np, lmax, Nd*Nd]                                                     
     const int lmax,
     const int Np,
     const int Nd // 12 for cube, 8 for tetrahedron
@@ -233,15 +235,17 @@ void calculate_dcosdtheta(
     num2 *= dotp;
     float num1 = (dot_dpi_pj+dot_pi_dpj);                         
 
-    dcosdteta[blx*Nd*Nd + thx] = (num1*den - num2) / (den*den); // dx1
-                             
+    //dcosdteta[blx*Nd*Nd + thx] = (num1*den - num2) / (den*den); // dx1
+    float dcosdtetax1 = (num1*den - num2) / (den*den);                       
+
     // for dy1 
     dot_dpi_pj = dpi1z*pts12[indexj + 0] - dpi1x*pts12[indexj + 2];
     dot_pi_dpj = dpj1z*pts12[indexi + 0] - dpj1x*pts12[indexi + 2];
     num2 = r12[index_ri] * drj1y + r12[index_rj] * dri1y;
     num2 *= dotp;
     num1 = (dot_dpi_pj+dot_pi_dpj);
-    dcosdteta[blx*Nd*Nd + thx + Np*Nd*Nd] = (num1*den - num2) / (den*den); // dy1
+    //dcosdteta[blx*Nd*Nd + thx + Np*Nd*Nd] = (num1*den - num2) / (den*den); // dy1
+    float dcosdtetay1 = (num1*den - num2) / (den*den);
                              
     // for dz1
     dot_dpi_pj = dpi1x*pts12[indexj + 1] - dpi1y*pts12[indexj + 0];
@@ -249,7 +253,8 @@ void calculate_dcosdtheta(
     num2 = r12[index_ri] * drj1z + r12[index_rj] * dri1z;
     num2 *= dotp;
     num1 = (dot_dpi_pj+dot_pi_dpj);
-    dcosdteta[blx*Nd*Nd + thx + Np*Nd*Nd*2] = (num1*den - num2) / (den*den); // dz1                                                  
+   // dcosdteta[blx*Nd*Nd + thx + Np*Nd*Nd*2] = (num1*den - num2) / (den*den); // dz1                                                  
+    float dcosdtetaz1 = (num1*den - num2) / (den*den);
 
     // for dx_trans
     float dot_dpi_pj_trans = dpi_trans * pts12[indexj + 0];
@@ -258,8 +263,9 @@ void calculate_dcosdtheta(
     num2 = r12[index_ri] * drjx_trans + r12[index_rj] * drix_trans;
     num2 *= dotp;
     num1 = (dot_dpi_pj_trans+dot_pi_dpj_trans);
-    dcosdxyz[blx*Nd*Nd + thx] = (num1*den - num2) / (den*den); // dx_trans
-                             
+    //dcosdxyz[blx*Nd*Nd + thx] = (num1*den - num2) / (den*den); // dx_trans
+    float dcosdxyzx1 = (num1*den - num2) / (den*den);                             
+
     // for dy_trans
     dot_dpi_pj_trans = dpi_trans * pts12[indexj + 1];
     dot_pi_dpj_trans = pts12[indexi + 1] * dpj_trans;                                
@@ -267,8 +273,9 @@ void calculate_dcosdtheta(
     num2 = r12[index_ri] * drjy_trans + r12[index_rj] * driy_trans;
     num2 *= dotp;
     num1 = (dot_dpi_pj_trans+dot_pi_dpj_trans);
-    dcosdxyz[blx*Nd*Nd + thx + Np*Nd*Nd] = (num1*den - num2) / (den*den); // dy_trans
-                             
+    //dcosdxyz[blx*Nd*Nd + thx + Np*Nd*Nd] = (num1*den - num2) / (den*den); // dy_trans
+    float dcosdxyzy1 = (num1*den - num2) / (den*den); 
+
     // for dz_trans
     dot_dpi_pj_trans = dpi_trans * pts12[indexj + 2];
     dot_pi_dpj_trans = pts12[indexi + 2] * dpj_trans;                                
@@ -276,8 +283,8 @@ void calculate_dcosdtheta(
     num2 = r12[index_ri] * drjz_trans + r12[index_rj] * driz_trans;
     num2 *= dotp;
     num1 = (dot_dpi_pj_trans+dot_pi_dpj_trans);
-    dcosdxyz[blx*Nd*Nd + thx + Np*Nd*Nd*2] = (num1*den - num2) / (den*den); // dz_trans
-                             
+    //dcosdxyz[blx*Nd*Nd + thx + Np*Nd*Nd*2] = (num1*den - num2) / (den*den); // dz_trans
+    float dcosdxyzz1 = (num1*den - num2) / (den*den);                          
 
     // for dx2
     float dpi2x = 0.f;
@@ -318,21 +325,24 @@ void calculate_dcosdtheta(
     num2 = r12[index_ri] * drj2x + r12[index_rj] * dri2x;
     num2 *= dotp;
     num1 = (dot_dpi_pj+dot_pi_dpj);
-    dcosdteta[blx*Nd*Nd + thx + Np*Nd*Nd*3] = (num1*den - num2) / (den*den); // dx2                                                   
-                                                      
+    //dcosdteta[blx*Nd*Nd + thx + Np*Nd*Nd*3] = (num1*den - num2) / (den*den); // dx2                                                   
+    float dcosdtetax2 = (num1*den - num2) / (den*den);
+
     dot_dpi_pj = dpi2z*pts12[indexj + 0] - dpi2x*pts12[indexj + 2];
     dot_pi_dpj = dpj2z*pts12[indexi + 0] - dpj2x*pts12[indexi + 2];
     num2 = r12[index_ri] * drj2y + r12[index_rj] * dri2y;
     num2 *= dotp;
     num1 = (dot_dpi_pj+dot_pi_dpj);
-    dcosdteta[blx*Nd*Nd + thx + Np*Nd*Nd*4] = (num1*den - num2) / (den*den); // dy2
+    //dcosdteta[blx*Nd*Nd + thx + Np*Nd*Nd*4] = (num1*den - num2) / (den*den); // dy2
+    float dcosdtetay2 = (num1*den - num2) / (den*den);
 
     dot_dpi_pj = dpi2x*pts12[indexj + 1] - dpi2y*pts12[indexj + 0];
     dot_pi_dpj = dpj2x*pts12[indexi + 1] - dpj2y*pts12[indexi + 0];
     num2 = r12[index_ri] * drj2z + r12[index_rj] * dri2z;
     num2 *= dotp;
     num1 = (dot_dpi_pj+dot_pi_dpj);
-    dcosdteta[blx*Nd*Nd + thx + Np*Nd*Nd*5] = (num1*den - num2) / (den*den); // dz2 
+    //dcosdteta[blx*Nd*Nd + thx + Np*Nd*Nd*5] = (num1*den - num2) / (den*den); // dz2 
+    float dcosdtetaz2 = (num1*den - num2) / (den*den);
 
     float cos = dotp / (norm1 * norm2); // Calculate the cosine value                         
     leg[blx * Nd * Nd * lmax + thx] = cos; // Initialize legendre polynomial for l=0
@@ -343,7 +353,18 @@ void calculate_dcosdtheta(
     float dlegdcos_i_1 = 1.0f;                                                  
     float dlegdcos_i;                         
                              
-    dlegdcos[blx * Nd * Nd * lmax + thx] = 1.0f; 
+    //dlegdcos[blx * Nd * Nd * lmax + thx] = 1.0f; 
+    dlegdteta[0*Np*lmax*Nd*Nd + blx*lmax*Nd*Nd + 0*Nd*Nd + thx] = dcosdtetax1;              
+    dlegdteta[1*Np*lmax*Nd*Nd + blx*lmax*Nd*Nd + 0*Nd*Nd + thx] = dcosdtetay1;              
+    dlegdteta[2*Np*lmax*Nd*Nd + blx*lmax*Nd*Nd + 0*Nd*Nd + thx] = dcosdtetaz1;              
+    dlegdteta[3*Np*lmax*Nd*Nd + blx*lmax*Nd*Nd + 0*Nd*Nd + thx] = dcosdtetax2;              
+    dlegdteta[4*Np*lmax*Nd*Nd + blx*lmax*Nd*Nd + 0*Nd*Nd + thx] = dcosdtetay2;              
+    dlegdteta[5*Np*lmax*Nd*Nd + blx*lmax*Nd*Nd + 0*Nd*Nd + thx] = dcosdtetaz2;  
+
+    dlegdxyz[0*Np*lmax*Nd*Nd + blx*lmax*Nd*Nd + 0*Nd*Nd + thx] = dcosdxyzx1;              
+    dlegdxyz[1*Np*lmax*Nd*Nd + blx*lmax*Nd*Nd + 0*Nd*Nd + thx] = dcosdxyzy1;              
+    dlegdxyz[2*Np*lmax*Nd*Nd + blx*lmax*Nd*Nd + 0*Nd*Nd + thx] = dcosdxyzz1;              
+
     // dlegdcos[blx * Nd * Nd * lmax + thx + Nd*Nd] = 3.0f*cos; 
                              
     // Calculate higher order legendre polynomials
@@ -355,9 +376,20 @@ void calculate_dcosdtheta(
         leg[blx * Nd * Nd * lmax + thx + Nd*Nd*(i_lego)] = lego_next;
 
         dlegdcos_i = (i_lego + 1) * lego_n_1 + cos*dlegdcos_i_1;                                          
-        dlegdcos[blx * Nd * Nd * lmax + thx + Nd*Nd*(i_lego)] = dlegdcos_i;
+        //dlegdcos[blx * Nd * Nd * lmax + thx + Nd*Nd*(i_lego)] = dlegdcos_i;
         dlegdcos_i_1 = dlegdcos_i;                     
-                             
+        
+        dlegdteta[0*Np*lmax*Nd*Nd + blx*lmax*Nd*Nd + i_lego*Nd*Nd + thx] = dlegdcos_i * dcosdtetax1;              
+        dlegdteta[1*Np*lmax*Nd*Nd + blx*lmax*Nd*Nd + i_lego*Nd*Nd + thx] = dlegdcos_i * dcosdtetay1;              
+        dlegdteta[2*Np*lmax*Nd*Nd + blx*lmax*Nd*Nd + i_lego*Nd*Nd + thx] = dlegdcos_i * dcosdtetaz1;              
+        dlegdteta[3*Np*lmax*Nd*Nd + blx*lmax*Nd*Nd + i_lego*Nd*Nd + thx] = dlegdcos_i * dcosdtetax2;              
+        dlegdteta[4*Np*lmax*Nd*Nd + blx*lmax*Nd*Nd + i_lego*Nd*Nd + thx] = dlegdcos_i * dcosdtetay2;              
+        dlegdteta[5*Np*lmax*Nd*Nd + blx*lmax*Nd*Nd + i_lego*Nd*Nd + thx] = dlegdcos_i * dcosdtetaz2;              
+        
+
+        dlegdxyz[0*Np*lmax*Nd*Nd + blx*lmax*Nd*Nd + i_lego*Nd*Nd + thx] = dlegdcos_i * dcosdxyzx1;              
+        dlegdxyz[1*Np*lmax*Nd*Nd + blx*lmax*Nd*Nd + i_lego*Nd*Nd + thx] = dlegdcos_i * dcosdxyzy1;              
+        dlegdxyz[2*Np*lmax*Nd*Nd + blx*lmax*Nd*Nd + i_lego*Nd*Nd + thx] = dlegdcos_i * dcosdxyzz1;              
     }                                                                          
 
                              

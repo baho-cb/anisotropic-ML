@@ -416,7 +416,6 @@ class ForceEvaluator():
         a = x
 
         for W, b in zip(self.weights[:-1], self.biases[:-1]):     # all hidden layers
-            print(W.shape)
 
             z = a @ W.T + b            # (B, n_k)
             a, m = relu(z)       # activation + derivative mask

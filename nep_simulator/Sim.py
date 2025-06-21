@@ -93,7 +93,7 @@ class Sim():
         pos_tree = self.central_pos + self.Lx*0.5
         tree = KDTree(data=pos_tree, leafsize=12, boxsize=self.Lx+0.0001)
         self.Nlist = tree.query_pairs(r=self.Nlist_cutoff,output_type='ndarray')
-        self.Nlist = cp.asarray(self.Nlist)
+        self.Nlist = cp.asarray(self.Nlist,dtype=cp.int32)
         self.cutoff_gpu = cp.ones(self.Nlist.shape[0], dtype=cp.float32)*self.cutoff    
 
     def setGsdDump(self,dump_period,filename):
@@ -199,7 +199,7 @@ class Sim():
         pos_tree = pos_tree.get()
         tree = KDTree(data=pos_tree, leafsize=12, boxsize=self.Lx.get()+0.0001)
         self.Nlist = tree.query_pairs(r=self.Nlist_cutoff,output_type='ndarray')
-        self.Nlist = cp.asarray(self.Nlist)
+        self.Nlist = cp.asarray(self.Nlist,dtype=cp.int32)
         self.cutoff_gpu = cp.ones(self.Nlist.shape[0], dtype=cp.float32)*self.cutoff    
 
     def set_timers(self):
@@ -252,22 +252,21 @@ class Sim():
         print('t_s1 : %.2f'%(self._t_s1))
         print('t_s2 : %.2f'%(self._t_s2))    
 
-        # print('Descriptor Generator Timers:')
-        # print('t_pts : %.2f'%(self.descriptor_generator.t_pts))
-        # print('t_dcos : %.2f'%(self.descriptor_generator.t_dcos))
-        # print('t_k1 : %.2f'%(self.descriptor_generator.t_k1))
-        # print('t_k2 : %.2f'%(self.descriptor_generator.t_k2))
-        # print('t_k3 : %.2f'%(self.descriptor_generator.t_k3))
-        # print('t_k4 : %.2f'%(self.descriptor_generator.t_k4))
-        # print('t_k5 : %.2f'%(self.descriptor_generator.t_k5))
-        # print('t_k6 : %.2f'%(self.descriptor_generator.t_k6))
-        # print('t_k7 : %.2f'%(self.descriptor_generator.t_k7))
-        # print('t_k8 : %.2f'%(self.descriptor_generator.t_k8))
+        print('Descriptor Generator Timers:')
+        print('t_k1 : %.2f'%(self.descriptor_generator.t_k1))
+        print('t_k2 : %.2f'%(self.descriptor_generator.t_k2))
+        print('t_k3 : %.2f'%(self.descriptor_generator.t_k3))
+        print('t_k4 : %.2f'%(self.descriptor_generator.t_k4))
+        print('t_k5 : %.2f'%(self.descriptor_generator.t_k5))
+        print('t_k6 : %.2f'%(self.descriptor_generator.t_k6))
+        print('t_k7 : %.2f'%(self.descriptor_generator.t_k7))
+        print('t_k8 : %.2f'%(self.descriptor_generator.t_k8))
+        print('t_k9 : %.2f'%(self.descriptor_generator.t_k9))
 
-        print('EVAL timers')
-        print('t_e1 : %.2f'%(self.evaluator.t_e1))
-        print('t_e2 : %.2f'%(self.evaluator.t_e2))
-        print('t_e3 : %.2f'%(self.evaluator.t_e3))
+        # print('EVAL timers')
+        # print('t_e1 : %.2f'%(self.evaluator.t_e1))
+        # print('t_e2 : %.2f'%(self.evaluator.t_e2))
+        # print('t_e3 : %.2f'%(self.evaluator.t_e3))
         # print('t_e4 : %.2f'%(self.evaluator.t_e4))
 
         print('Done')        
