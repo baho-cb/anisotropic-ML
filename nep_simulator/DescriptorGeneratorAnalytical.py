@@ -108,8 +108,8 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
 
     def kernel1(self,central_pos,orientations,Nlist):
         N_total = Nlist.shape[0]
-        self.mask = cp.empty((N_total),dtype=cp.int32)
-        self.translate_all = cp.empty((N_total,3),dtype=cp.float32)
+        mask = cp.empty((N_total),dtype=cp.int32)
+        translate_all = cp.empty((N_total,3),dtype=cp.float32)
 
         n_threads = 256 
         n_blocks = (N_total//256) + 5
@@ -123,16 +123,16 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
             (
                 central_pos,
                 Nlist,
-                self.translate_all,
-                self.mask,
+                translate_all,
+                mask,
                 cp.float32(self.Lx),
                 cp.float32(self.cutoff),
                 cp.int32(N_total)
             )
         )
 
-        self.pp = Nlist[self.mask==1]
-        self.translate = self.translate_all[self.mask==1]
+        self.pp = Nlist[mask==1]
+        self.translate = translate_all[mask==1]
         self.N_pair = self.pp.shape[0]
 
         self.quat1 = orientations[self.pp[:,0]]
@@ -184,10 +184,7 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
         self._dr12dteta = cp.concatenate((self._dr1dteta, self._dr2dteta),axis=1)
 
         self.cosine = cp.empty((self.N_pair, self.Nd, self.Nd), dtype=cp.float32)
-        # self.dcosdteta = cp.zeros((6,self.N_pair, self.Nd, self.Nd), dtype=cp.float32)
-        # self.dcosdxyz = cp.zeros((3,self.N_pair, self.Nd, self.Nd), dtype=cp.float32)
         self.leg = cp.empty((self.N_pair, self.lmax, self.Nd, self.Nd), dtype=cp.float32)
-        # self.dlegdcos = cp.empty((self.N_pair, self.lmax, self.Nd, self.Nd), dtype=cp.float32)
         
         self.dlegdteta = cp.empty((6, self.N_pair, self.lmax, self.Nd*self.Nd), dtype=cp.float32)
         self.dlegdxyz = cp.empty((3, self.N_pair, self.lmax, self.Nd*self.Nd), dtype=cp.float32)
@@ -201,10 +198,7 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
                 self._p12dteta,
                 self._dr12dteta,
                 self.cosine,
-                # self.dcosdteta,
-                # self.dcosdxyz,
                 self.leg,
-                # self.dlegdcos,
                 self.dlegdteta,
                 self.dlegdxyz,
                 cp.int32(self.lmax),
@@ -213,17 +207,6 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
             )
         )
 
-        # print(mu.maxerr(self.dcosdxyz[0],self._dcosdxyz[:,:,:,0]))
-        # print(mu.maxerr(self.dcosdxyz[1],self._dcosdxyz[:,:,:,1]))
-        # print(mu.maxerr(self.dcosdxyz[2],self._dcosdxyz[:,:,:,2]))
-
-        # print(mu.maxerr(self.dcosdteta[0],self._dcosdteta[:,:,:,0]))
-        # print(mu.maxerr(self.dcosdteta[1],self._dcosdteta[:,:,:,1]))
-        # print(mu.maxerr(self.dcosdteta[2],self._dcosdteta[:,:,:,2]))
-        # print(mu.maxerr(self.dcosdteta[3],self._dcosdteta[:,:,:,3]))
-        # print(mu.maxerr(self.dcosdteta[4],self._dcosdteta[:,:,:,4]))
-        # print(mu.maxerr(self.dcosdteta[5],self._dcosdteta[:,:,:,5]))
-        # exit()
 
     def kernel4(self):
         self._dgdr = cp.empty((self.N_pair,self.nrad + 1,self.Nd),dtype=cp.float32) # (N_pair,6,3)
@@ -274,17 +257,6 @@ class DescriptorGeneratorAnalytical(DescriptorGenerator):
                 cp.int32(self.Nd)
             )
         )
-
-        # print(mu.maxerr(self.dgdxyz[0],self._dgdxyz[:,:,:,0]))
-        # print(mu.maxerr(self.dgdxyz[1],self._dgdxyz[:,:,:,1]))
-        # print(mu.maxerr(self.dgdxyz[2],self._dgdxyz[:,:,:,2]))
-        # print(mu.maxerr(self.dgdteta[0],self._dgdteta[:,:,:,0]))
-        # print(mu.maxerr(self.dgdteta[1],self._dgdteta[:,:,:,1]))
-        # print(mu.maxerr(self.dgdteta[2],self._dgdteta[:,:,:,2]))
-        # print(mu.maxerr(self.dgdteta[3],self._dgdteta[:,:,:,3]))
-        # print(mu.maxerr(self.dgdteta[4],self._dgdteta[:,:,:,4]))
-        # print(mu.maxerr(self.dgdteta[5],self._dgdteta[:,:,:,5]))
-        # exit()
 
 
 

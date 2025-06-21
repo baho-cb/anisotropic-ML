@@ -29,6 +29,7 @@ non_opt.add_argument('--hypers_nep', metavar="<float>", type=float, dest="hypers
 non_opt.add_argument('--model_path', metavar="<dat>", type=str, dest="model_path", required=True)
 non_opt.add_argument('--gpu_id', metavar="<int>", type=int, dest="gpu_id", required=True)
 non_opt.add_argument('--shape', metavar="<str>", type=str, dest="shape", required=True)
+non_opt.add_argument('--sync', metavar="<int>", type=int, dest="is_sync", required=True)
 
 args = parser.parse_args()
 init_gsd = args.init_gsd
@@ -41,6 +42,7 @@ hypers_nep = args.hypers_nep
 model_path = args.model_path
 gpu_id = args.gpu_id
 shape = args.shape
+is_sync = args.is_sync
 
 if not os.path.exists('./out/'):
     os.makedirs('./out/')
@@ -57,5 +59,6 @@ sim.setNeighborList()
 sim.setGsdDump(dump_period, gsd_filename)
 sim.setkT(kT)
 sim.setdt(dt)
+sim.setIsSync(is_sync)
 
 sim.run(timesteps)

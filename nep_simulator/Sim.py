@@ -215,12 +215,39 @@ class Sim():
         self._t_s2 = 0
         self._t_nlist = 0
 
-    def run(self,Nsteps):
-        self.is_sync = 1
+    def setIsSync(self,is_sync):
+        self.is_sync = is_sync
         self.descriptor_generator.setSync(self.is_sync)
         self.evaluator.setSync(self.is_sync)
         self.set_timers()
 
+    def print_accum_times(self):
+        print('Timers:')
+        print('t_nlist : %.2f'%(self.t_nlist))
+        print('t_gen : %.2f'%(self._t_gen))
+        print('t_eval : %.2f'%(self._t_eval))
+        print('t_s1 : %.2f'%(self._t_s1))
+        print('t_s2 : %.2f'%(self._t_s2))    
+
+        print('Descriptor Generator Timers:')
+        print('t_k1 : %.2f'%(self.descriptor_generator.t_k1))
+        print('t_k2 : %.2f'%(self.descriptor_generator.t_k2))
+        print('t_k3 : %.2f'%(self.descriptor_generator.t_k3))
+        print('t_k4 : %.2f'%(self.descriptor_generator.t_k4))
+        print('t_k5 : %.2f'%(self.descriptor_generator.t_k5))
+        print('t_k6 : %.2f'%(self.descriptor_generator.t_k6))
+        print('t_k7 : %.2f'%(self.descriptor_generator.t_k7))
+        print('t_k8 : %.2f'%(self.descriptor_generator.t_k8))
+        print('t_k9 : %.2f'%(self.descriptor_generator.t_k9))
+
+        print('EVAL timers')
+        print('t_e1 : %.2f'%(self.evaluator.t_e1))
+        print('t_e2 : %.2f'%(self.evaluator.t_e2))
+        print('t_e3 : %.2f'%(self.evaluator.t_e3))
+        print('t_e4 : %.2f'%(self.evaluator.t_e4))
+
+
+    def run(self,Nsteps):
         self.move_data_to_device()
         self.timestep = 0
         self.timer = time.time()
@@ -245,31 +272,10 @@ class Sim():
             # self.step()
             self.step_analytical()
 
-        print('Timers:')
-        print('t_nlist : %.2f'%(self.t_nlist))
-        print('t_gen : %.2f'%(self._t_gen))
-        print('t_eval : %.2f'%(self._t_eval))
-        print('t_s1 : %.2f'%(self._t_s1))
-        print('t_s2 : %.2f'%(self._t_s2))    
+        if(self.is_sync==1):
+            self.print_accum_times()
 
-        print('Descriptor Generator Timers:')
-        print('t_k1 : %.2f'%(self.descriptor_generator.t_k1))
-        print('t_k2 : %.2f'%(self.descriptor_generator.t_k2))
-        print('t_k3 : %.2f'%(self.descriptor_generator.t_k3))
-        print('t_k4 : %.2f'%(self.descriptor_generator.t_k4))
-        print('t_k5 : %.2f'%(self.descriptor_generator.t_k5))
-        print('t_k6 : %.2f'%(self.descriptor_generator.t_k6))
-        print('t_k7 : %.2f'%(self.descriptor_generator.t_k7))
-        print('t_k8 : %.2f'%(self.descriptor_generator.t_k8))
-        print('t_k9 : %.2f'%(self.descriptor_generator.t_k9))
-
-        # print('EVAL timers')
-        # print('t_e1 : %.2f'%(self.evaluator.t_e1))
-        # print('t_e2 : %.2f'%(self.evaluator.t_e2))
-        # print('t_e3 : %.2f'%(self.evaluator.t_e3))
-        # print('t_e4 : %.2f'%(self.evaluator.t_e4))
-
-        print('Done')        
+        print('Simulation Completed.')        
 
     def step_analytical(self):
         # g_nep, pp, Npair = self.descriptor_generator.generate_nep_descriptors(self.central_pos,self.orientations,self.Nlist)
